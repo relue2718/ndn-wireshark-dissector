@@ -5,6 +5,7 @@ local f_data = ProtoField.string("ndntlv.data", "Data", FT_STRING)
  
 p_ndnproto.fields = {f_command}
 
+-- test
 
 -- http://lua-users.org/wiki/HexDump
    function hex_dump(buf)
