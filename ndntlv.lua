@@ -9,11 +9,13 @@ p_ndnproto.fields = {f_command}
 
 -- http://lua-users.org/wiki/HexDump
    function hex_dump(buf)
+         print(#buf)
       for i=1,math.ceil(#buf/16) * 16 do
-         if (i-1) % 16 == 0 then io.write(string.format('%08X  ', i-1)) end
-         io.write( i > #buf and '   ' or string.format('%02X ', buf:byte(i)) )
-         if i %  8 == 0 then io.write(' ') end
-         if i % 16 == 0 then io.write( buf:sub(i-16+1, i):gsub('%c','.'), '\n' ) end
+
+         if (i-1) % 16 == 0 then print(string.format('%08X  ', i-1)) end
+         print( i > #buf and '   ' or string.format('%02X ', buf:byte(i)) )
+         if i %  8 == 0 then print(' ') end
+         if i % 16 == 0 then print( buf:sub(i-16+1, i):gsub('%c','.'), '\n' ) end
       end
    end
 
@@ -22,7 +24,15 @@ p_ndnproto.fields = {f_command}
 function p_ndnproto.dissector (buf, pkt, root)
   print("-- dissector start --")
   print("buffer.length = "..buf:len())
-  hex_dump(buf)
+
+  local first_byte = buf:range(0,1)
+  local ndn_interest_ver = first_byte:bitfield(0, 4)
+  local ndn_interest_msg = first_byte:bitfield(4, 4)
+
+  print(ndn_interest_ver)
+  print(ndn_interest_msg)
+  --print(buf:byte(1):bitfield(0,3))
+  --hex_dump(buf)
   
   -- validate packet length is adequate, otherwise quit
   if buf:len() == 0 then return end
