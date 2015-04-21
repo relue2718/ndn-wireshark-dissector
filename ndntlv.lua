@@ -51,3 +51,6 @@ dissector = udp_dissector_table:get_dissector(6363)
 udp_dissector_table:add(6363, p_ndnproto)
 
 print("finished")
+
+print("end")
+
