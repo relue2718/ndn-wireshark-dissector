@@ -5,32 +5,78 @@ local f_data = ProtoField.string("ndntlv.data", "Data", FT_STRING)
  
 p_ndnproto.fields = {f_command}
 
--- test
-
--- http://lua-users.org/wiki/HexDump
-   function hex_dump(buf)
-         print(#buf)
-      for i=1,math.ceil(#buf/16) * 16 do
-
-         if (i-1) % 16 == 0 then print(string.format('%08X  ', i-1)) end
-         print( i > #buf and '   ' or string.format('%02X ', buf:byte(i)) )
-         if i %  8 == 0 then print(' ') end
-         if i % 16 == 0 then print( buf:sub(i-16+1, i):gsub('%c','.'), '\n' ) end
-      end
-   end
-
- 
 -- ndnproto dissector function
 function p_ndnproto.dissector (buf, pkt, root)
   print("-- dissector start --")
   print("buffer.length = "..buf:len())
+  
+  -- Before doing extractions, we need to read NDN-TLV specification.
+  -- http://named-data.net/doc/ndn-tlv/tlv.html
+  -- ** Note that NDN packet format does not have a fixed packet header nor does it encode a protocol version number. **
+  -- http://named-data.net/doc/ndn-tlv/types.html
 
-  local first_byte = buf:range(0,1)
-  local ndn_interest_ver = first_byte:bitfield(0, 4)
-  local ndn_interest_msg = first_byte:bitfield(4, 4)
+  -- dissector start --
+  -- buffer.length = 47
+  -- 0000 : 05 2d 07 21 08 03 6e 64 6e 08 03 65 64 75 08 03 
+  --        IN 45 [ --- PAYLOAD OF AN INTEREST PACKET ---
+  -- 0016 : 75 63 69 08 04 70 69 6e 67 08 0a 31 30 36 36 32 
+  -- 0032 : 32 37 35 32 36 09 02 12 00 0a 04 46 57 8d 3f 
+  -- -- dissector finished --
+  -- -- dissector start --
+  -- buffer.length = 405
+  -- 0000 : 06 fd 01 91 07 21 08 03 6e 64 6e 08 03 65 64 75 
+  --        DA 
+  --
+  --        fd means 253 -> two octet value
+  --        01 -> 256
+  --        91 -> 144 + 1 = 145 
+  --
+  --        256+145 = 401
+  --        
+  --        the remaining bytes are the payload of the data packet.
+  --
+  -- 0016 : 08 03 75 63 69 08 04 70 69 6e 67 08 0a 31 30 36 
+  -- 0032 : 36 32 32 37 35 32 36 14 04 19 02 03 e8 15 16 4e 
+  -- 0048 : 44 4e 20 54 4c 56 20 50 69 6e 67 20 52 65 73 70 
+  -- 0064 : 6f 6e 73 65 00 16 4a 1b 01 01 1c 45 07 43 08 09 
+  -- 0080 : 6c 6f 63 61 6c 68 6f 73 74 08 07 64 61 65 6d 6f 
+  -- 0096 : 6e 73 08 0c 6e 64 6e 2d 74 6c 76 2d 70 69 6e 67 
+  -- 0112 : 08 03 4b 45 59 08 11 6b 73 6b 2d 31 34 30 36 34 
+  -- 0128 : 32 31 33 38 33 36 35 33 08 07 49 44 2d 43 45 52 
+  -- 0144 : 54 17 fd 01 00 88 1b c9 c3 60 dd be 5a 56 48 92 
+  -- 0160 : 74 fd 7a 38 2f 6d c5 5f 37 a3 dd d3 69 96 44 9b 
+  -- 0176 : a5 9d f1 a7 11 46 b3 3e c1 d0 cb ff 4d 1d 92 b9 
+  -- 0192 : 77 d3 43 8d 8c a9 a1 44 d7 2a ea 63 32 ab a6 a6 
+  -- 0208 : f1 b2 71 dc 74 c1 e8 ee 90 80 b3 65 08 4c 09 03 
+  -- 0224 : 54 23 e2 c3 ff c0 7e 04 d0 d0 3f 9d b3 0e d4 9c 
+  -- 0240 : 14 2c 6b d4 e0 df 43 f3 60 6e 5a af 19 11 54 5f 
+  -- 0256 : 84 82 67 c4 9c 6d 7e b4 c9 53 62 44 80 f7 95 8c 
+  -- 0272 : 91 ce e7 21 bf 71 5e 3e a2 f2 e3 09 e9 86 01 14 
+  -- 0288 : 3e 31 41 ce 7c 97 cf f0 78 da d7 95 8c ff 6f a3 
+  -- 0304 : 69 9d 5c 64 f6 3d 6b 1a 3a 6d d8 44 98 09 c5 4c 
+  -- 0320 : db 30 6c 2d 62 c3 a3 1b 54 81 24 fe fe 51 0f b0 
+  -- 0336 : 29 d0 62 87 6b bc e5 e1 59 7d 79 ed b9 bf ee 89 
+  -- 0352 : da e8 cd bb e6 14 fb d0 b6 d7 2d 70 c1 ad 00 50 
+  -- 0368 : fb 41 ec 56 eb 09 e6 4b 2d e6 98 49 78 44 b5 dc 
+  -- 0384 : 75 c7 9f a6 05 ee 0e cf d3 06 b5 34 04 02 0e c9 
+  -- 0400 : d5 82 5c c7 62 
 
-  print(ndn_interest_ver)
-  print(ndn_interest_msg)
+  local tmp = ""
+  for i=0, buf:len()-1 do
+      if i % 16 == 0 then
+          tmp = tmp .. string.format("%04d",i) .. " : "
+      end
+      tmp = tmp .. (buf:range(i,1).." ")
+      if (i+1) % 16 == 0 then
+        tmp = tmp .. ("\n")
+      end
+  end
+  print(tmp)
+
+  --  local first_byte = buf:range(0,1)
+  --  local ndn_interest_ver = first_byte:bitfield(0, 4)
+  --  local ndn_interest_msg = first_byte:bitfield(4, 4)
+
   --print(buf:byte(1):bitfield(0,3))
   --hex_dump(buf)
   
