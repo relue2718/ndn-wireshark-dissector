@@ -86,19 +86,19 @@ function p_ndnproto.dissector (buf, pkt, root)
   -- add protocol fields to subtree
   subtree:add(f_packet_type, buf(0,1))
   local payload_offset = 2 -- by default
-  local packet_size_preliminary = buf(1,1):int()
+  local packet_size_preliminary = buf(1,1):uint()
   local packet_size=0
   if(packet_size_preliminary<253) then
-    packet_size=packet_size_preliminary
+    packet_size= buf(1, 1)
   elseif(packet_size_preliminary==253) then
     payload_offset = 3 -- the length of the packet size field is 2
-    packet_size = buf(2, 2):int64()
+    packet_size = buf(2, 2)
   elseif(packet_size_preliminary==254) then
     payload_offset = 5 -- the length of the packet size field is 4
-    packet_size = buf(2,4):int64()
+    packet_size = buf(2,4)
   elseif(packet_size_preliminary==255) then
    payload_offset = 9 -- the length of the packet size field is 8.
-   packet_size = buf(2,8):int64()
+   packet_size = buf(2,8)
   end
 
   subtree:add(f_packet_size, packet_size)
