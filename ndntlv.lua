@@ -1,9 +1,10 @@
 -- create ndnproto protocol and its fields
 p_ndnproto = Proto ("ndntlv","NDN-TLV")
-local f_command = ProtoField.uint16("ndntlv.command", "Command", base.DEC_HEX)
+local f_packet_type = ProtoField.uint16("ndntlv.packettype", "Packet type", base.DEC_HEX)
+local f_packet_size = ProtoField.uint16("ndntlv.packetsize", "Packet size", base.DEC_HEX)
 local f_data = ProtoField.string("ndntlv.data", "Data", FT_STRING)
  
-p_ndnproto.fields = {f_command}
+p_ndnproto.fields = {f_packet_type, f_packet_size, f_data}
 
 -- test
 
@@ -31,8 +32,26 @@ function p_ndnproto.dissector (buf, pkt, root)
   -- create subtree for ndnproto
   subtree = root:add(p_ndnproto, buf())
   -- add protocol fields to subtree
-  subtree:add(f_command, buf(0,1)):append_text(" Packet type")
-  subtree:add(f_command, buf(1,1)):append_text(" Length")
+  subtree:add(f_packet_type, buf(0,1))
+  local payload_offset = 2 -- by default
+  local packet_size_preliminary = buf(1,1):int()
+  local packet_size=0
+  if(packet_size_preliminary<253) then
+    packet_size=packet_size_preliminary
+  elseif(packet_size_preliminary==253) then
+    payload_offset = 3 -- the length of the packet size field is 2
+    packet_size = buf(2, 2):int64()
+    print("######"..packet_size)
+  elseif(packet_size_preliminary==254) then
+    payload_offset = 5 -- the length of the packet size field is 4
+    packet_size = buf(2,4):int64()
+  elseif(packet_size_preliminary==255) then
+   payload_offset = 9 -- the length of the packet size field is 8.
+   packet_size = buf(2,8):int64()
+  end
+  
+
+  subtree:add(f_packet_size, packet_size)
  
   -- description of payload
   subtree:append_text(", Command details here or in the tree below")
