@@ -2,9 +2,10 @@
 p_ndnproto = Proto ("ndntlv","NDN-TLV")
 local f_packet_type = ProtoField.uint16("ndntlv.packettype", "Packet type", base.DEC_HEX)
 local f_packet_size = ProtoField.uint16("ndntlv.packetsize", "Packet size", base.DEC_HEX)
+local f_interest = ProtoField.string("ndntlv.interest", "Interest Packet", FT_STRING)
 local f_data = ProtoField.string("ndntlv.data", "Data", FT_STRING)
  
-p_ndnproto.fields = {f_packet_type, f_packet_size, f_data}
+p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest}
 
 function dump_buf(buf)
   print("-- dump buffer --")
@@ -74,17 +75,9 @@ function dump_buf(buf)
   print(tmp)
 end
 
--- ndnproto dissector function
-function p_ndnproto.dissector (buf, pkt, root)
-  print("-- dissector begins --")
-  -- validate packet length is adequate, otherwise quit
-  if buf:len() == 0 then return end
-  pkt.cols.protocol = p_ndnproto.name
- 
-  -- create subtree for ndnproto
-  subtree = root:add(p_ndnproto, buf())
-  -- add protocol fields to subtree
+function add_subtree_for_ndntlv( buf, subtree )
   subtree:add(f_packet_type, buf(0,1))
+
   local payload_offset = 2 -- by default
   local packet_size_preliminary = buf(1,1):uint()
   local packet_size=0
@@ -102,9 +95,28 @@ function p_ndnproto.dissector (buf, pkt, root)
   end
 
   subtree:add(f_packet_size, packet_size)
+
+  local packet_type = buf(0,1):uint()
+  if (packet_type == 5) then -- interest
+      local child_tree = subtree:add(f_interest, "test")
+      add_subtree_for_ndntlv( buf( payload_offset, 8 ), child_tree )
+  end
+end
+
+-- ndnproto dissector function
+function p_ndnproto.dissector (buf, pkt, root)
+  print("-- dissector begins --")
+  -- validate packet length is adequate, otherwise quit
+  if buf:len() == 0 then return end
+  pkt.cols.protocol = p_ndnproto.name
  
+  -- create subtree for ndnproto
+  subtree = root:add(p_ndnproto, buf())
+ 
+  add_subtree_for_ndntlv( buf, subtree )
+
   -- description of payload
-  subtree:append_text(", Command details here or in the tree below")
+  -- subtree:append_text(", Command details here or in the tree below")
   print("-- dissector finishes --")
 end
  
