@@ -1,6 +1,6 @@
 -- create ndnproto protocol and its fields
 p_ndnproto = Proto ("ndntlv","NDN-TLV")
-local f_command = ProtoField.uint16("ndntlv.command", "Command", base.HEX)
+local f_command = ProtoField.uint16("ndntlv.command", "Command", base.DEC_HEX)
 local f_data = ProtoField.string("ndntlv.data", "Data", FT_STRING)
  
 p_ndnproto.fields = {f_command}
@@ -8,30 +8,31 @@ p_ndnproto.fields = {f_command}
 -- test
 
 -- http://lua-users.org/wiki/HexDump
-   function hex_dump(buf)
-      for i=1,math.ceil(#buf/16) * 16 do
-         if (i-1) % 16 == 0 then io.write(string.format('%08X  ', i-1)) end
-         io.write( i > #buf and '   ' or string.format('%02X ', buf:byte(i)) )
-         if i %  8 == 0 then io.write(' ') end
-         if i % 16 == 0 then io.write( buf:sub(i-16+1, i):gsub('%c','.'), '\n' ) end
-      end
-   end
+--   function hex_dump(buf)
+--      for i=1,math.ceil(#buf/16) * 16 do
+--         if (i-1) % 16 == 0 then io.write(string.format('%08X  ', i-1)) end
+--         io.write( i > #buf and '   ' or string.format('%02X ', buf:byte(i)) )
+--         if i %  8 == 0 then io.write(' ') end
+--         if i % 16 == 0 then io.write( buf:sub(i-16+1, i):gsub('%c','.'), '\n' ) end
+--      end
+--   end
 
  
 -- ndnproto dissector function
 function p_ndnproto.dissector (buf, pkt, root)
   print("-- dissector start --")
   print("buffer.length = "..buf:len())
-  hex_dump(buf)
+--  hex_dump(buf)
   
   -- validate packet length is adequate, otherwise quit
   if buf:len() == 0 then return end
   pkt.cols.protocol = p_ndnproto.name
  
   -- create subtree for ndnproto
-  subtree = root:add(p_ndnproto, buf(0))
+  subtree = root:add(p_ndnproto, buf())
   -- add protocol fields to subtree
-  subtree:add(f_command, buf(0,2)):append_text(" [Command text]")
+  subtree:add(f_command, buf(0,1)):append_text(" Packet type")
+  subtree:add(f_command, buf(1,1)):append_text(" Length")
  
   -- description of payload
   subtree:append_text(", Command details here or in the tree below")
