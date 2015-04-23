@@ -6,10 +6,8 @@ local f_data = ProtoField.string("ndntlv.data", "Data", FT_STRING)
  
 p_ndnproto.fields = {f_packet_type, f_packet_size, f_data}
 
-
--- ndnproto dissector function
-function p_ndnproto.dissector (buf, pkt, root)
-  print("-- dissector start --")
+function dump_buf(buf)
+  print("-- dump buffer --")
   print("buffer.length = "..buf:len())
   
   -- Before doing extractions, we need to read NDN-TLV specification.
@@ -74,14 +72,11 @@ function p_ndnproto.dissector (buf, pkt, root)
       end
   end
   print(tmp)
+end
 
-  --  local first_byte = buf:range(0,1)
-  --  local ndn_interest_ver = first_byte:bitfield(0, 4)
-  --  local ndn_interest_msg = first_byte:bitfield(4, 4)
-
-  --print(buf:byte(1):bitfield(0,3))
-  --hex_dump(buf)
-  
+-- ndnproto dissector function
+function p_ndnproto.dissector (buf, pkt, root)
+  print("-- dissector begins --")
   -- validate packet length is adequate, otherwise quit
   if buf:len() == 0 then return end
   pkt.cols.protocol = p_ndnproto.name
@@ -98,7 +93,6 @@ function p_ndnproto.dissector (buf, pkt, root)
   elseif(packet_size_preliminary==253) then
     payload_offset = 3 -- the length of the packet size field is 2
     packet_size = buf(2, 2):int64()
-    print("######"..packet_size)
   elseif(packet_size_preliminary==254) then
     payload_offset = 5 -- the length of the packet size field is 4
     packet_size = buf(2,4):int64()
@@ -106,14 +100,12 @@ function p_ndnproto.dissector (buf, pkt, root)
    payload_offset = 9 -- the length of the packet size field is 8.
    packet_size = buf(2,8):int64()
   end
-  
 
   subtree:add(f_packet_size, packet_size)
  
   -- description of payload
   subtree:append_text(", Command details here or in the tree below")
-
-  print("-- dissector finished --")
+  print("-- dissector finishes --")
 end
  
 -- Initialization routine
