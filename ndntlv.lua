@@ -76,30 +76,46 @@ function dump_buf(buf)
 end
 
 function add_subtree_for_ndntlv( buf, subtree )
-  subtree:add(f_packet_type, buf(0,1))
+  local length = buf:len()
+  local current_pos = 0
 
-  local payload_offset = 2 -- by default
-  local packet_size_preliminary = buf(1,1):uint()
-  local packet_size=0
-  if(packet_size_preliminary<253) then
-    packet_size= buf(1, 1)
-  elseif(packet_size_preliminary==253) then
-    payload_offset = 3 -- the length of the packet size field is 2
-    packet_size = buf(2, 2)
-  elseif(packet_size_preliminary==254) then
-    payload_offset = 5 -- the length of the packet size field is 4
-    packet_size = buf(2,4)
-  elseif(packet_size_preliminary==255) then
-   payload_offset = 9 -- the length of the packet size field is 8.
-   packet_size = buf(2,8)
-  end
+  while ( current_pos < length ) do
+    -- extract TYPE
+    local _type = buf( current_pos, 1 )
+    local _type_uint = _type:uint()
+    subtree:add( f_packet_type, _type )
+    current_pos = current_pos + 1
 
-  subtree:add(f_packet_size, packet_size)
+    -- extract SIZE
+    local _size = buf( current_pos, 1 )
+    local _size_num = _size:uint()
+    current_pos = current_pos + 1
 
-  local packet_type = buf(0,1):uint()
-  if (packet_type == 5) then -- interest
-      local child_tree = subtree:add(f_interest, "test")
-      add_subtree_for_ndntlv( buf( payload_offset, 8 ), child_tree )
+    if ( _size_num == 253 ) then
+      _size = buf( current_pos, 2 )
+      _size_num = _size:uint()
+      current_pos = current_pos + 2
+    elseif ( _size_num == 254 ) then
+      _size = buf( current_pos, 4 )
+      _size_num = _size:uint()
+      current_pos = current_pos + 4
+    elseif ( _size_num == 255 ) then
+      print("### error ###")
+      _size = buf( current_pos, 8 )
+      _size_num = _size:uint64() -- can lua number be larger than 32 bits? -- the type 'userdata'
+      current_pos = current_pos + 8
+    end
+
+    subtree:add( f_packet_size, _size )
+    local _payload = buf( current_pos, _size_num )
+    current_pos = current_pos + _size_num
+
+    if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
+      local child_tree = subtree:add( f_interest, "interest" )
+      add_subtree_for_ndntlv( _payload, child_tree )
+    else
+      subtree:add( f_data, _payload )
+    end
   end
 end
 
