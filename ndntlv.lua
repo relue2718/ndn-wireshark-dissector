@@ -1,9 +1,9 @@
 -- create ndnproto protocol and its fields
-p_ndnproto = Proto ("ndntlv","NDN-TLV")
-local f_packet_type = ProtoField.uint16("ndntlv.packettype", "Packet type", base.DEC_HEX)
-local f_packet_size = ProtoField.uint16("ndntlv.packetsize", "Packet size", base.DEC_HEX)
-local f_interest = ProtoField.string("ndntlv.interest", "Interest Packet", FT_STRING)
-local f_data = ProtoField.string("ndntlv.data", "Data", FT_STRING)
+p_ndnproto = Proto ("ndn","NDN")
+local f_packet_type = ProtoField.uint16("ndn.packettype", "Packet type", base.DEC_HEX)
+local f_packet_size = ProtoField.uint16("ndn.packetsize", "Packet size", base.DEC_HEX)
+local f_interest = ProtoField.string("ndn.interest", "Interest Packet", FT_STRING)
+local f_data = ProtoField.string("ndn.data", "Data", FT_STRING)
  
 p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest}
 
@@ -75,7 +75,7 @@ function dump_buf(buf)
   print(tmp)
 end
 
-function add_subtree_for_ndntlv( buf, subtree )
+function add_subtree_for_ndn( buf, subtree )
   local length = buf:len()
   local current_pos = 0
 
@@ -112,7 +112,7 @@ function add_subtree_for_ndntlv( buf, subtree )
 
     if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
       local child_tree = subtree:add( f_interest, "interest" )
-      add_subtree_for_ndntlv( _payload, child_tree )
+      add_subtree_for_ndn( _payload, child_tree )
     else
       subtree:add( f_data, _payload )
     end
@@ -129,7 +129,7 @@ function p_ndnproto.dissector (buf, pkt, root)
   -- create subtree for ndnproto
   subtree = root:add(p_ndnproto, buf())
  
-  add_subtree_for_ndntlv( buf, subtree )
+  add_subtree_for_ndn( buf, subtree )
 
   -- description of payload
   -- subtree:append_text(", Command details here or in the tree below")
