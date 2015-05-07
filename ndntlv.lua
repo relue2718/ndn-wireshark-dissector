@@ -147,6 +147,9 @@ function add_subtree_for_ndn( buf, subtree )
       subtree:add( f_interest_selector_minsuffix, _payload )
     elseif ( _type_uint == 14 ) then
       subtree:add( f_interest_selector_maxsuffix, _payload )
+    elseif ( _type_uint == 15 ) then
+      local child_tree = subtree:add( f_interest_selector_keylocator, "Key Locator" )
+      add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 18 ) then
       subtree:add( f_interest_selector_mustbefresh, _payload )
     else
