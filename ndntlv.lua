@@ -5,12 +5,20 @@ local f_packet_size = ProtoField.uint16("ndn.length", "Length", base.DEC_HEX)
 local f_interest = ProtoField.string("ndn.interest", "Interest Packet", FT_STRING)
 local f_data = ProtoField.string("ndn.data", "Data", FT_STRING)
 local f_name = ProtoField.string("ndn.name", "Name", FT_STRING)
-local f_selector = ProtoField.string("ndn.selector", "Selector", FT_STRING)
-local f_nonce = ProtoField.string("ndn.nonce", "Nonce", base.DEC_HEX)
-local f_scope = ProtoField.string("ndn.scope", "Scope", FT_STRING)
-local f_interest_life_time = ProtoField.string("ndn.lifetime", "Interest Life Time", FT_STRING)
+local f_interest_selector = ProtoField.string("ndn.selector", "Selector", FT_STRING)
+local f_interest_nonce = ProtoField.uint16("ndn.nonce", "Nonce", base.DEC_HEX)
+local f_interest_scope = ProtoField.string("ndn.scope", "Scope", FT_STRING)
+local f_interest_interestlifetime = ProtoField.string("ndn.interestlifetime", "Interest Life Time", FT_STRING)
 
-p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_selector, f_nonce, f_scope, f_interest_life_time}
+local f_interest_selector_minsuffix = ProtoField.uint16("ndn.minsuffix", "Min Suffix Components", base.DEC_HEX)
+local f_interest_selector_maxsuffix = ProtoField.uint16("ndn.maxsuffix", "Max Suffix Components", base.DEC_HEX)
+local f_interest_selector_keylocator = ProtoField.string("ndn.keylocator", "Publisher Public Key Locator", base.DEC_HEX)
+local f_interest_selector_exclude = ProtoField.string("ndn.exclude", "Exclude", base.DEC_HEX)
+local f_interest_selector_childselector = ProtoField.string("ndn.childselector", "Child Selector", base.DEC_HEX)
+local f_interest_selector_mustbefresh = ProtoField.string("ndn.mustbefresh", "Must Be Fresh", base.DEC_HEX)
+local f_interest_selector_any = ProtoField.string("ndn.any", "Any", base.DEC_HEX)
+
+p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any}
 
 function dump_buf(buf)
   print("-- dump buffer --")
@@ -112,22 +120,35 @@ function add_subtree_for_ndn( buf, subtree )
     end
 
     subtree:add( f_packet_size, _size )
+
+
+    if ( _type_uint == 18 ) then
+      return true
+    end
+
     local _payload = buf( current_pos, _size_num )
     current_pos = current_pos + _size_num
 
     if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
-      local child_tree = subtree:add( f_interest, "interest" )
+      local child_tree = subtree:add( f_interest, "Interest packet" )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 7 ) then
       subtree:add( f_name, _payload, _payload:string(ENC_UTF_8) )
     elseif ( _type_uint == 9 ) then
-      subtree:add( f_selector, _payload )
+      local child_tree = subtree:add( f_interest_selector, "Selectors" )
+      add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 10 ) then
-      subtree:add( f_nonce, _payload )
+      subtree:add( f_interest_nonce, _payload )
     elseif ( _type_uint == 11 ) then
-      subtree:add( f_scope, _payload )
+      subtree:add( f_interest_scope, _payload )
     elseif ( _type_uint == 12 ) then
-      subtree:add( f_interest_life_time, _payload )
+      subtree:add( f_interest_interestlifetime, _payload )
+    elseif ( _type_uint == 13 ) then
+      subtree:add( f_interest_selector_minsuffix, _payload )
+    elseif ( _type_uint == 14 ) then
+      subtree:add( f_interest_selector_maxsuffix, _payload )
+    elseif ( _type_uint == 18 ) then
+      subtree:add( f_interest_selector_mustbefresh, _payload )
     else
       subtree:add( f_data, _payload )
     end
