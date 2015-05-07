@@ -1,11 +1,16 @@
 -- create ndnproto protocol and its fields
 p_ndnproto = Proto ("ndn","NDN")
-local f_packet_type = ProtoField.uint16("ndn.packettype", "Packet type", base.DEC_HEX)
-local f_packet_size = ProtoField.uint16("ndn.packetsize", "Packet size", base.DEC_HEX)
+local f_packet_type = ProtoField.uint16("ndn.type", "Type", base.DEC_HEX)
+local f_packet_size = ProtoField.uint16("ndn.length", "Length", base.DEC_HEX)
 local f_interest = ProtoField.string("ndn.interest", "Interest Packet", FT_STRING)
 local f_data = ProtoField.string("ndn.data", "Data", FT_STRING)
- 
-p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest}
+local f_name = ProtoField.string("ndn.name", "Name", FT_STRING)
+local f_selector = ProtoField.string("ndn.selector", "Selector", FT_STRING)
+local f_nonce = ProtoField.string("ndn.nonce", "Nonce", base.DEC_HEX)
+local f_scope = ProtoField.string("ndn.scope", "Scope", FT_STRING)
+local f_interest_life_time = ProtoField.string("ndn.lifetime", "Interest Life Time", FT_STRING)
+
+p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_selector, f_nonce, f_scope, f_interest_life_time}
 
 function dump_buf(buf)
   print("-- dump buffer --")
@@ -113,6 +118,8 @@ function add_subtree_for_ndn( buf, subtree )
     if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
       local child_tree = subtree:add( f_interest, "interest" )
       add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 7 ) then
+      subtree:add( f_name, _payload, _payload:string(ENC_UTF_8) )
     else
       subtree:add( f_data, _payload )
     end
