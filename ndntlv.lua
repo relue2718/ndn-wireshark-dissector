@@ -120,6 +120,14 @@ function add_subtree_for_ndn( buf, subtree )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 7 ) then
       subtree:add( f_name, _payload, _payload:string(ENC_UTF_8) )
+    elseif ( _type_uint == 9 ) then
+      subtree:add( f_selector, _payload )
+    elseif ( _type_uint == 10 ) then
+      subtree:add( f_nonce, _payload )
+    elseif ( _type_uint == 11 ) then
+      subtree:add( f_scope, _payload )
+    elseif ( _type_uint == 12 ) then
+      subtree:add( f_interest_life_time, _payload )
     else
       subtree:add( f_data, _payload )
     end
