@@ -16,7 +16,7 @@ local f_interest_selector_minsuffix = ProtoField.uint16("ndn.minsuffix", "Min Su
 local f_interest_selector_maxsuffix = ProtoField.uint16("ndn.maxsuffix", "Max Suffix Components", base.DEC_HEX)
 local f_interest_selector_keylocator = ProtoField.string("ndn.keylocator", "Publisher Public Key Locator", base.DEC_HEX)
 local f_interest_selector_exclude = ProtoField.string("ndn.exclude", "Exclude", base.DEC_HEX)
-local f_interest_selector_childselector = ProtoField.string("ndn.childselector", "Child Selector", base.DEC_HEX)
+local f_interest_selector_childselector = ProtoField.uint16("ndn.childselector", "Child Selector", base.DEC_HEX)
 local f_interest_selector_mustbefresh = ProtoField.string("ndn.mustbefresh", "Must Be Fresh", base.DEC_HEX)
 local f_interest_selector_any = ProtoField.string("ndn.any", "Any", base.DEC_HEX)
 
@@ -155,8 +155,12 @@ function add_subtree_for_ndn( buf, subtree )
     elseif ( _type_uint == 16 ) then
       local child_tree = subtree:add( f_interest_selector_exclude, "Exclude" )
       add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 17 ) then
+      subtree:add( f_interest_selector_childselector, _payload )
     elseif ( _type_uint == 18 ) then
       subtree:add( f_interest_selector_mustbefresh, _payload )
+    elseif ( _type_uint == 19 ) then
+      subtree:add( f_interest_selector_any, _payload )
     else
       subtree:add( f_data, _payload )
     end
