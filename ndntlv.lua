@@ -2,9 +2,11 @@
 p_ndnproto = Proto ("ndn","NDN")
 local f_packet_type = ProtoField.uint16("ndn.type", "Type", base.DEC_HEX)
 local f_packet_size = ProtoField.uint16("ndn.length", "Length", base.DEC_HEX)
+
 local f_interest = ProtoField.string("ndn.interest", "Interest Packet", FT_STRING)
 local f_data = ProtoField.string("ndn.data", "Data", FT_STRING)
 local f_name = ProtoField.string("ndn.name", "Name", FT_STRING)
+
 local f_interest_selector = ProtoField.string("ndn.selector", "Selector", FT_STRING)
 local f_interest_nonce = ProtoField.uint16("ndn.nonce", "Nonce", base.DEC_HEX)
 local f_interest_scope = ProtoField.string("ndn.scope", "Scope", FT_STRING)
@@ -150,6 +152,9 @@ function add_subtree_for_ndn( buf, subtree )
     elseif ( _type_uint == 15 ) then
       local child_tree = subtree:add( f_interest_selector_keylocator, "Key Locator" )
       add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 16 ) then
+      local child_tree = subtree:add( f_interest_selector_exclude, "Exclude" )
+      add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 18 ) then
       subtree:add( f_interest_selector_mustbefresh, _payload )
     else
@@ -186,6 +191,8 @@ dissector = udp_dissector_table:get_dissector(6363)
   -- you can call dissector from function p_ndnproto.dissector above
   -- so that the previous dissector gets called
 udp_dissector_table:add(6363, p_ndnproto)
+
+
 
 print("finished")
 
