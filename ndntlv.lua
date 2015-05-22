@@ -141,34 +141,47 @@ function add_subtree_for_ndn( buf, subtree )
     current_pos = current_pos + _size_num
 
     if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
+      -- Interest packet
       local child_tree = subtree:add( f_interest, "Interest packet" )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 7 ) then
+      -- Name
       subtree:add( f_name, _payload, _payload:string(ENC_UTF_8) )
     elseif ( _type_uint == 9 ) then
+      -- Selectors
       local child_tree = subtree:add( f_interest_selector, "Selectors" )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 10 ) then
+      -- Nonce
       subtree:add( f_interest_nonce, _payload )
     elseif ( _type_uint == 11 ) then
+      -- Scope
       subtree:add( f_interest_scope, _payload )
     elseif ( _type_uint == 12 ) then
+      -- Interest Lifetime
       subtree:add( f_interest_interestlifetime, _payload )
     elseif ( _type_uint == 13 ) then
+      -- Selectors / Min Suffix Components
       subtree:add( f_interest_selector_minsuffix, _payload )
     elseif ( _type_uint == 14 ) then
+      -- Selectors / Max Suffix Components
       subtree:add( f_interest_selector_maxsuffix, _payload )
     elseif ( _type_uint == 15 ) then
+      -- Selectors / Publish Key Locator
       local child_tree = subtree:add( f_interest_selector_keylocator, "Key Locator" )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 16 ) then
+      -- Selectors / Exclude
       local child_tree = subtree:add( f_interest_selector_exclude, "Exclude" )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 17 ) then
+      -- Selectors / Child Selector
       subtree:add( f_interest_selector_childselector, _payload )
     elseif ( _type_uint == 18 ) then
+      -- Selectors / Must be Fresh
       subtree:add( f_interest_selector_mustbefresh, _payload )
     elseif ( _type_uint == 19 ) then
+      -- Selectors / Any
       subtree:add( f_interest_selector_any, _payload )
     else
       subtree:add( f_data, _payload )
