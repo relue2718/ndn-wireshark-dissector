@@ -225,8 +225,7 @@ function add_subtree_for_ndn( buf, subtree )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 23 ) then
       -- SignatureValue
-      local child_tree = subtree:add( f_data_signaturevalue, "Signature Value" )
-      add_subtree_for_ndn( _payload, child_tree )
+      subtree:add( f_data_signaturevalue, _payload )
     elseif ( _type_uint == 24 ) then
       -- MetaInfo / ContentType
       subtree:add( f_data_metainfo_contenttype, _payload )
