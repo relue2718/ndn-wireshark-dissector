@@ -41,8 +41,13 @@ local f_data_metainfo_contenttype = ProtoField.uint16("ndn.contenttype", "Conten
 local f_data_metainfo_freshnessperiod = ProtoField.uint16("ndn.freshnessperiod", "Freshness Period", base.DEC_HEX)
 local f_data_metainfo_finalblockid = ProtoField.string("ndn.finalblockid", "Final Block ID", FT_STRING)
 
+-- Sub-fields of Data/Signature field
+local f_data_signature_signaturetype = ProtoField.uint16("ndn.signaturetype", "Signature Type", base.DEC_HEX)
+local f_data_signature_keylocator = ProtoField.string("ndn.keylocator", "Key Locator", FT_STRING)
+local f_data_signature_keydigest = ProtoField.string("ndn.keydigest", "Key Digest", FT_STRING)
+
 -- Add protofields in NDN protocol
-p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_namecomponent, f_implicitSHA, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any, f_data_metainfo, f_data_content, f_data_signatureinfo, f_data_signaturevalue, f_data_metainfo_contenttype, f_data_metainfo_freshnessperiod, f_data_metainfo_finalblockid}
+p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_namecomponent, f_implicitSHA, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any, f_data_metainfo, f_data_content, f_data_signatureinfo, f_data_signaturevalue, f_data_metainfo_contenttype, f_data_metainfo_freshnessperiod, f_data_metainfo_finalblockid, f_data_signature_signaturetype, f_data_signature_keylocator, f_data_signature_keydigest}
 
 function dump_buf(buf)
   print("-- dump buffer --")
@@ -232,8 +237,18 @@ function add_subtree_for_ndn( buf, subtree )
       -- MetaInfo / FinalBlockId
       local child_tree = subtree:add( f_data_metainfo_finalblockid, "Final Block ID" )
       add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 27 ) then
+      -- Signature / SignatureType
+      subtree:add( f_data_signature_signaturetype, _payload )
+    elseif ( _type_uint == 28 ) then
+      -- Signature / KeyLocator
+      local child_tree = subtree:add( f_data_signature_keylocator, "Key Locator" )
+      add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 29 ) then
+      -- Signature / KeyDigest
+      subtree:add( f_data_signature_keydigest, _payload )
     else
-      subtree:add( f_data, _payload )
+      print("error")
     end
   end
 end
