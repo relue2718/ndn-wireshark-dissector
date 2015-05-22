@@ -36,8 +36,13 @@ local f_data_content = ProtoField.string("ndn.content", "Content", FT_STRING)
 local f_data_signatureinfo = ProtoField.string("ndn.signatureinfo", "Signature Info", FT_STRING)
 local f_data_signaturevalue = ProtoField.string("ndn.signaturevalue", "Signature Value", FT_STRING)
 
+-- Sub-fields of Data/MetaInfo field
+local f_data_metainfo_contenttype = ProtoField.uint16("ndn.contenttype", "Content Type", base.DEC_HEX)
+local f_data_metainfo_freshnessperiod = ProtoField.uint16("ndn.freshnessperiod", "Freshness Period", base.DEC_HEX)
+local f_data_metainfo_finalblockid = ProtoField.string("ndn.finalblockid", "Final Block ID", FT_STRING)
+
 -- Add protofields in NDN protocol
-p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_namecomponent, f_implicitSHA, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any, f_data_metainfo, f_data_content, f_data_signatureinfo, f_data_signaturevalue}
+p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_namecomponent, f_implicitSHA, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any, f_data_metainfo, f_data_content, f_data_signatureinfo, f_data_signaturevalue, f_data_metainfo_contenttype, f_data_metainfo_freshnessperiod, f_data_metainfo_finalblockid}
 
 function dump_buf(buf)
   print("-- dump buffer --")
@@ -216,6 +221,16 @@ function add_subtree_for_ndn( buf, subtree )
     elseif ( _type_uint == 23 ) then
       -- SignatureValue
       local child_tree = subtree:add( f_data_signaturevalue, "Signature Value" )
+      add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 24 ) then
+      -- MetaInfo / ContentType
+      subtree:add( f_data_metainfo_contenttype, _payload )
+    elseif ( _type_uint == 25 ) then
+      -- MetaInfo / FreshnessPeriod
+      subtree:add( f_data_metainfo_freshnessperiod, _payload )
+    elseif ( _type_uint == 26 ) then
+      -- MetaInfo / FinalBlockId
+      local child_tree = subtree:add( f_data_metainfo_finalblockid, "Final Block ID" )
       add_subtree_for_ndn( _payload, child_tree )
     else
       subtree:add( f_data, _payload )
