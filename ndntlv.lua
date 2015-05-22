@@ -19,7 +19,7 @@ local f_implicitSHA = ProtoField.string("ndn.implicitsha", "Implicit SHA 256 Dig
 local f_interest_selector = ProtoField.string("ndn.selector", "Selector", FT_STRING)
 local f_interest_nonce = ProtoField.uint16("ndn.nonce", "Nonce", base.DEC_HEX)
 local f_interest_scope = ProtoField.string("ndn.scope", "Scope", FT_STRING)
-local f_interest_interestlifetime = ProtoField.string("ndn.interestlifetime", "Interest Life Time", FT_STRING)
+local f_interest_interestlifetime = ProtoField.uint16("ndn.interestlifetime", "Interest Life Time", base.DEC_HEX)
 
 -- Sub-fields of Interest/Selector field
 local f_interest_selector_minsuffix = ProtoField.uint16("ndn.minsuffix", "Min Suffix Components", base.DEC_HEX)
