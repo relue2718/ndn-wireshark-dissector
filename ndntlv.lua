@@ -24,14 +24,20 @@ local f_interest_interestlifetime = ProtoField.uint16("ndn.interestlifetime", "I
 -- Sub-fields of Interest/Selector field
 local f_interest_selector_minsuffix = ProtoField.uint16("ndn.minsuffix", "Min Suffix Components", base.DEC_HEX)
 local f_interest_selector_maxsuffix = ProtoField.uint16("ndn.maxsuffix", "Max Suffix Components", base.DEC_HEX)
-local f_interest_selector_keylocator = ProtoField.string("ndn.keylocator", "Publisher Public Key Locator", base.DEC_HEX)
-local f_interest_selector_exclude = ProtoField.string("ndn.exclude", "Exclude", base.DEC_HEX)
+local f_interest_selector_keylocator = ProtoField.string("ndn.keylocator", "Publisher Public Key Locator", FT_STRING)
+local f_interest_selector_exclude = ProtoField.string("ndn.exclude", "Exclude", FT_STRING)
 local f_interest_selector_childselector = ProtoField.uint16("ndn.childselector", "Child Selector", base.DEC_HEX)
-local f_interest_selector_mustbefresh = ProtoField.string("ndn.mustbefresh", "Must Be Fresh", base.DEC_HEX)
-local f_interest_selector_any = ProtoField.string("ndn.any", "Any", base.DEC_HEX)
+local f_interest_selector_mustbefresh = ProtoField.string("ndn.mustbefresh", "Must Be Fresh", FT_STRING)
+local f_interest_selector_any = ProtoField.string("ndn.any", "Any", FT_STRING)
+
+-- Sub-fields of Data packet
+local f_data_metainfo = ProtoField.string("ndn.metainfo", "Meta Info", FT_STRING)
+local f_data_content = ProtoField.string("ndn.content", "Content", FT_STRING)
+local f_data_signatureinfo = ProtoField.string("ndn.signatureinfo", "Signature Info", FT_STRING)
+local f_data_signaturevalue = ProtoField.string("ndn.signaturevalue", "Signature Value", FT_STRING)
 
 -- Add protofields in NDN protocol
-p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_namecomponent, f_implicitSHA, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any}
+p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_namecomponent, f_implicitSHA, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any, f_data_metainfo, f_data_content, f_data_signatureinfo, f_data_signaturevalue}
 
 function dump_buf(buf)
   print("-- dump buffer --")
@@ -146,6 +152,10 @@ function add_subtree_for_ndn( buf, subtree )
       -- Interest packet
       local child_tree = subtree:add( f_interest, "Interest packet" )
       add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 6 ) then
+      -- Data packet
+      local child_tree = subtree:add( f_data, "Data packet" )
+      add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 7 ) then
       -- Name
       local child_tree = subtree:add( f_name, "Name" )
@@ -192,6 +202,21 @@ function add_subtree_for_ndn( buf, subtree )
     elseif ( _type_uint == 19 ) then
       -- Selectors / Any
       subtree:add( f_interest_selector_any, _payload )
+    elseif ( _type_uint == 20 ) then
+      -- MetaInfo
+      local child_tree = subtree:add( f_data_metainfo, "Meta Info" )
+      add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 21 ) then
+      -- Content
+      subtree:add( f_data_content, _payload )
+    elseif ( _type_uint == 22 ) then
+      -- SignatureInfo
+      local child_tree = subtree:add( f_data_signatureinfo, "Signature Info" )
+      add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 23 ) then
+      -- SignatureValue
+      local child_tree = subtree:add( f_data_signaturevalue, "Signature Value" )
+      add_subtree_for_ndn( _payload, child_tree )
     else
       subtree:add( f_data, _payload )
     end
