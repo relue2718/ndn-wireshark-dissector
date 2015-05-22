@@ -12,6 +12,8 @@ local f_data = ProtoField.string("ndn.data", "Data", FT_STRING)
 
 -- Name field
 local f_name = ProtoField.string("ndn.name", "Name", FT_STRING)
+local f_namecomponent = ProtoField.string("ndn.namecomponent", "Name Component", FT_STRING)
+local f_implicitSHA = ProtoField.string("ndn.implicitsha", "Implicit SHA 256 Digest Component", FT_STRING)
 
 -- Sub-fields of Interest packet
 local f_interest_selector = ProtoField.string("ndn.selector", "Selector", FT_STRING)
@@ -29,7 +31,7 @@ local f_interest_selector_mustbefresh = ProtoField.string("ndn.mustbefresh", "Mu
 local f_interest_selector_any = ProtoField.string("ndn.any", "Any", base.DEC_HEX)
 
 -- Add protofields in NDN protocol
-p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any}
+p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_namecomponent, f_implicitSHA, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any}
 
 function dump_buf(buf)
   print("-- dump buffer --")
@@ -146,7 +148,14 @@ function add_subtree_for_ndn( buf, subtree )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 7 ) then
       -- Name
-      subtree:add( f_name, _payload, _payload:string(ENC_UTF_8) )
+      local child_tree = subtree:add( f_name, "Name" )
+      add_subtree_for_ndn( _payload, child_tree )
+    elseif ( _type_uint == 8 ) then
+      -- Name Component
+      subtree:add( f_namecomponent, _payload, _payload:string(ENC_UTF_8) )
+    elseif ( _type_uint == 1 ) then
+      -- Implicit SHA 256 Digest Component
+      subtree:add( f_implicitSHA, _payload )
     elseif ( _type_uint == 9 ) then
       -- Selectors
       local child_tree = subtree:add( f_interest_selector, "Selectors" )
