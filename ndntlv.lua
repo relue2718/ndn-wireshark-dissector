@@ -125,7 +125,7 @@ function add_subtree_for_ndn( buf, subtree )
     -- extract TYPE
     local _type = buf( current_pos, 1 )
     local _type_uint = _type:uint()
-    subtree:add( f_packet_type, _type )
+--    subtree:add( f_packet_type, _type )
     current_pos = current_pos + 1
 
     -- extract SIZE
@@ -148,8 +148,9 @@ function add_subtree_for_ndn( buf, subtree )
       current_pos = current_pos + 8
     end
 
-    subtree:add( f_packet_size, _size )
+--    subtree:add( f_packet_size, _size )
 
+    local type_size_info = " (Type: " .. _type_uint .. ", Size: " .. _size_num .. ")"
 
     if ( _type_uint == 18 ) then
       return true
@@ -160,92 +161,92 @@ function add_subtree_for_ndn( buf, subtree )
 
     if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
       -- Interest packet
-      local child_tree = subtree:add( f_interest, "Interest packet" )
+      local child_tree = subtree:add( f_interest, "Interest packet" .. type_size_info )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 6 ) then
       -- Data packet
-      local child_tree = subtree:add( f_data, "Data packet" )
+      local child_tree = subtree:add( f_data, "Data packet" .. type_size_info )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 7 ) then
       -- Name
-      local child_tree = subtree:add( f_name, "Name" )
+      local child_tree = subtree:add( f_name, "Name" .. type_size_info )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 8 ) then
       -- Name Component
-      subtree:add( f_namecomponent, _payload, _payload:string(ENC_UTF_8) )
+      subtree:add( f_namecomponent, _payload, _payload:string(ENC_UTF_8) .. type_size_info )
     elseif ( _type_uint == 1 ) then
       -- Implicit SHA 256 Digest Component
-      subtree:add( f_implicitSHA, _payload )
+      subtree:add( f_implicitSHA, _payload, _payload:string() .. type_size_info )
     elseif ( _type_uint == 9 ) then
       -- Selectors
-      local child_tree = subtree:add( f_interest_selector, "Selectors" )
+      local child_tree = subtree:add( f_interest_selector, "Selectors" .. type_size_info )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 10 ) then
       -- Nonce
-      subtree:add( f_interest_nonce, _payload )
+      subtree:add( f_interest_nonce, _payload, _payload:uint(), nil, type_size_info )
     elseif ( _type_uint == 11 ) then
       -- Scope
-      subtree:add( f_interest_scope, _payload )
+      subtree:add( f_interest_scope, _payload, _payload:string() .. type_size_info )
     elseif ( _type_uint == 12 ) then
       -- Interest Lifetime
-      subtree:add( f_interest_interestlifetime, _payload )
+      subtree:add( f_interest_interestlifetime, _payload, _payload:uint(), nil, type_size_info )
     elseif ( _type_uint == 13 ) then
       -- Selectors / Min Suffix Components
-      subtree:add( f_interest_selector_minsuffix, _payload )
+      subtree:add( f_interest_selector_minsuffix, _payload, _payload:uint(), nil, type_size_info )
     elseif ( _type_uint == 14 ) then
       -- Selectors / Max Suffix Components
-      subtree:add( f_interest_selector_maxsuffix, _payload )
+      subtree:add( f_interest_selector_maxsuffix, _payload, _payload:uint(), nil, type_size_info )
     elseif ( _type_uint == 15 ) then
       -- Selectors / Publish Key Locator
-      local child_tree = subtree:add( f_interest_selector_keylocator, "Key Locator" )
+      local child_tree = subtree:add( f_interest_selector_keylocator, "Key Locator" .. type_size_info )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 16 ) then
       -- Selectors / Exclude
-      local child_tree = subtree:add( f_interest_selector_exclude, "Exclude" )
+      local child_tree = subtree:add( f_interest_selector_exclude, "Exclude" .. type_size_info )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 17 ) then
       -- Selectors / Child Selector
-      subtree:add( f_interest_selector_childselector, _payload )
+      subtree:add( f_interest_selector_childselector, _payload, _payload:uint(), nil, type_size_info )
     elseif ( _type_uint == 18 ) then
       -- Selectors / Must be Fresh
-      subtree:add( f_interest_selector_mustbefresh, _payload )
+      subtree:add( f_interest_selector_mustbefresh, _payload, _payload:string() .. type_size_info )
     elseif ( _type_uint == 19 ) then
       -- Selectors / Any
-      subtree:add( f_interest_selector_any, _payload )
+      subtree:add( f_interest_selector_any, _payload, _payload:string() .. type_size_info )
     elseif ( _type_uint == 20 ) then
       -- MetaInfo
-      local child_tree = subtree:add( f_data_metainfo, "Meta Info" )
+      local child_tree = subtree:add( f_data_metainfo, "Meta Info" .. type_size_info)
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 21 ) then
       -- Content
-      subtree:add( f_data_content, _payload )
+      subtree:add( f_data_content, _payload, _payload:string() .. type_size_info)
     elseif ( _type_uint == 22 ) then
       -- SignatureInfo
-      local child_tree = subtree:add( f_data_signatureinfo, "Signature Info" )
+      local child_tree = subtree:add( f_data_signatureinfo, "Signature Info" .. type_size_info)
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 23 ) then
       -- SignatureValue
-      subtree:add( f_data_signaturevalue, _payload )
+      subtree:add( f_data_signaturevalue, _payload, _payload:string() .. type_size_info )
     elseif ( _type_uint == 24 ) then
       -- MetaInfo / ContentType
-      subtree:add( f_data_metainfo_contenttype, _payload )
+      subtree:add( f_data_metainfo_contenttype, _payload, _payload:uint(), nil, type_size_info )
     elseif ( _type_uint == 25 ) then
       -- MetaInfo / FreshnessPeriod
-      subtree:add( f_data_metainfo_freshnessperiod, _payload )
+      subtree:add( f_data_metainfo_freshnessperiod, _payload, _payload:uint(), nil, type_size_info )
     elseif ( _type_uint == 26 ) then
       -- MetaInfo / FinalBlockId
-      local child_tree = subtree:add( f_data_metainfo_finalblockid, "Final Block ID" )
+      local child_tree = subtree:add( f_data_metainfo_finalblockid, "Final Block ID" .. type_size_info )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 27 ) then
       -- Signature / SignatureType
-      subtree:add( f_data_signature_signaturetype, _payload )
+      subtree:add( f_data_signature_signaturetype, _payload, _payload:uint(), nil, type_size_info )
     elseif ( _type_uint == 28 ) then
       -- Signature / KeyLocator
-      local child_tree = subtree:add( f_data_signature_keylocator, "Key Locator" )
+      local child_tree = subtree:add( f_data_signature_keylocator, "Key Locator" .. type_size_info )
       add_subtree_for_ndn( _payload, child_tree )
     elseif ( _type_uint == 29 ) then
       -- Signature / KeyDigest
-      subtree:add( f_data_signature_keydigest, _payload )
+      subtree:add( f_data_signature_keydigest, _payload, _payload:string() .. type_size_info )
     else
       print("error")
     end
