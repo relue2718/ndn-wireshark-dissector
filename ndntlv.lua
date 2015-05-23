@@ -280,6 +280,9 @@ end
 local udp_dissector_table = DissectorTable.get("udp.port")
 udp_dissector_table:add(6363, p_ndnproto)
 
+local tcp_dissector_table = DissectorTable.get("tcp.port")
+--tcp_dissector_table:add("1-65535", p_ndnproto) -- need to figure out the port number for tcp
+
 local websocket_dissector_table = DissectorTable.get("ws.port")
 websocket_dissector_table:add("1-65535", p_ndnproto) -- # how to set the pattern to match packets whose dest.port = 9696?
 
