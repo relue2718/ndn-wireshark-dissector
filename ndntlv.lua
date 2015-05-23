@@ -1,10 +1,13 @@
 -- create ndnproto protocol and its fields
 -- NDN protocol
 p_ndnproto = Proto ("ndn","NDN")
+p_ndnproto_ws = Proto("ndnws", "NDNWS")
 
 -- Type and Length fields
 local f_packet_type = ProtoField.uint16("ndn.type", "Type", base.DEC_HEX)
 local f_packet_size = ProtoField.uint16("ndn.length", "Length", base.DEC_HEX)
+
+local f_packet_type_2 = ProtoField.uint16("ndn.type", "Type", base.DEC_HEX)
 
 -- Interest or Data packets
 local f_interest = ProtoField.string("ndn.interest", "Interest Packet", FT_STRING)
@@ -48,6 +51,8 @@ local f_data_signature_keydigest = ProtoField.string("ndn.keydigest", "Key Diges
 
 -- Add protofields in NDN protocol
 p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f_namecomponent, f_implicitSHA, f_interest_selector, f_interest_nonce, f_interest_scope, f_interest_interestlifetime, f_interest_selector_mustbefresh, f_interest_selector_minsuffix, f_interest_selector_maxsuffix, f_interest_selector_keylocator, f_interest_selector_exclude, f_interest_selector_childselector, f_interest_selector_any, f_data_metainfo, f_data_content, f_data_signatureinfo, f_data_signaturevalue, f_data_metainfo_contenttype, f_data_metainfo_freshnessperiod, f_data_metainfo_finalblockid, f_data_signature_signaturetype, f_data_signature_keylocator, f_data_signature_keydigest}
+
+p_ndnproto_ws.fields = {f_packet_type_2}
 
 function dump_buf(buf)
   print("-- dump buffer --")
@@ -274,15 +279,35 @@ end
 function p_ndnproto.init()
 	print("initialized")
 end
+
+function p_ndnproto_ws.dissector(buf, pkt, root)
+  print("-- dissector @ websocket begins --")
+  print(buf)
+  print("-- dissector @ websocket finishes --");
+end
+
+function p_ndnproto_ws.init()
+	print("initialized @ websocket")
+end
  
--- register a chained dissector for port 8002
+-- register a chained dissector for port 6363
 local udp_dissector_table = DissectorTable.get("udp.port")
-dissector = udp_dissector_table:get_dissector(6363)
+dissector = udp_dissector_table:get_dissector(6363) -- ?? what is the purpose of this?
   -- you can call dissector from function p_ndnproto.dissector above
   -- so that the previous dissector gets called
 udp_dissector_table:add(6363, p_ndnproto)
 
+print("== udp dissector ==")
+print(udp_dissector_table);
+print(dissector);
 
+local websocket_dissector_table = DissectorTable.get("ws.port")
+dissector_websocket = websocket_dissector_table:get_dissector(9696) 
+websocket_dissector_table:add("1-65535", p_ndnproto_ws)
+
+print("== websocket dissector ==")
+print(websocket_dissector_table);
+print(dissector_websocket);
 
 print("finished")
 
