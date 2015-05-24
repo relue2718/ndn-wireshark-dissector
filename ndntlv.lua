@@ -259,6 +259,7 @@ end
 function p_ndnproto.dissector (buf, pkt, root)
   print("-- dissector begins --")
   -- validate packet length is adequate, otherwise quit
+ 
   if buf:len() == 0 then return end
   pkt.cols.protocol = p_ndnproto.name
  
@@ -284,7 +285,7 @@ local tcp_dissector_table = DissectorTable.get("tcp.port")
 --tcp_dissector_table:add("1-65535", p_ndnproto) -- need to figure out the port number for tcp
 
 local websocket_dissector_table = DissectorTable.get("ws.port")
-websocket_dissector_table:add("1-65535", p_ndnproto) -- # how to set the pattern to match packets whose dest.port = 9696?
+websocket_dissector_table:add("1-10", p_ndnproto) -- # need to know how to write pattern. it doesn't meet the port for ndn 9696....why?
 
 print("ndntlv.lua is successfully loaded.")
 
