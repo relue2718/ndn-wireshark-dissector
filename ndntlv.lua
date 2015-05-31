@@ -282,10 +282,10 @@ local udp_dissector_table = DissectorTable.get("udp.port")
 udp_dissector_table:add(6363, p_ndnproto)
 
 local tcp_dissector_table = DissectorTable.get("tcp.port")
---tcp_dissector_table:add("1-65535", p_ndnproto) -- need to figure out the port number for tcp
+--tcp_dissector_table:add(9696, p_ndnproto) -- need to figure out the port number for tcp
 
 local websocket_dissector_table = DissectorTable.get("ws.port")
-websocket_dissector_table:add("1-10", p_ndnproto) -- # need to know how to write pattern. it doesn't meet the port for ndn 9696....why?
+websocket_dissector_table:add("1-65535", p_ndnproto)
 
 print("ndntlv.lua is successfully loaded.")
 
