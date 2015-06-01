@@ -1,6 +1,6 @@
 -- create ndnproto protocol and its fields
 -- NDN protocol
-p_ndnproto = Proto ("ndn","NDN")
+p_ndnproto = Proto ("ndn","Named Data Network (NDN)")
 
 -- Type and Length fields
 local f_packet_type = ProtoField.uint16("ndn.type", "Type", base.DEC_HEX)
@@ -9,7 +9,7 @@ local f_packet_size = ProtoField.uint16("ndn.length", "Length", base.DEC_HEX)
 local f_packet_type_2 = ProtoField.uint16("ndn.type", "Type", base.DEC_HEX)
 
 -- Interest or Data packets
-local f_interest = ProtoField.string("ndn.interest", "Interest Packet", FT_STRING)
+local f_interest = ProtoField.string("ndn.interest", "Interest", FT_STRING)
 local f_data = ProtoField.string("ndn.data", "Data", FT_STRING)
 
 -- Name field
@@ -167,15 +167,15 @@ function parse_ndn_tlv( buf, ndntlv_info )
 
     if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
       -- Interest packet
-      local child_tree = add_subtree( ndntlv_info, { f_interest, "Interest packet" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_interest, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 6 ) then
       -- Data packet
-      local child_tree = add_subtree( ndntlv_info, { f_data, "Data packet" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_data, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 7 ) then
       -- Name
-      local child_tree = add_subtree( ndntlv_info, { f_name, "Name" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_name, _payload:string() .. type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 8 ) then
       -- Name Component
@@ -185,7 +185,7 @@ function parse_ndn_tlv( buf, ndntlv_info )
       add_subtree( ndntlv_info, { f_implicitSHA, _payload, _payload:string() .. type_size_info } )
     elseif ( _type_uint == 9 ) then
       -- Selectors
-      local child_tree = add_subtree( ndntlv_info, { f_interest_selector, "Selectors" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_interest_selector, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 10 ) then
       -- Nonce
@@ -204,11 +204,11 @@ function parse_ndn_tlv( buf, ndntlv_info )
       add_subtree( ndntlv_info, { f_interest_selector_maxsuffix, _payload, _payload:uint(), nil, type_size_info } )
     elseif ( _type_uint == 15 ) then
       -- Selectors / Publish Key Locator
-      local child_tree = add_subtree( ndntlv_info, { f_interest_selector_keylocator, "Key Locator" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_interest_selector_keylocator, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 16 ) then
       -- Selectors / Exclude
-      local child_tree = add_subtree( ndntlv_info, { f_interest_selector_exclude, "Exclude" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_interest_selector_exclude, type_size_info } )
       parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 17 ) then
       -- Selectors / Child Selector
@@ -221,14 +221,14 @@ function parse_ndn_tlv( buf, ndntlv_info )
       add_subtree( ndntlv_info, { f_interest_selector_any, _payload, _payload:string() .. type_size_info } )
     elseif ( _type_uint == 20 ) then
       -- MetaInfo
-      local child_tree = add_subtree( ndntlv_info, { f_data_metainfo, "Meta Info" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_data_metainfo, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 21 ) then
       -- Content
       add_subtree( ndntlv_info, { f_data_content, _payload, _payload:string() .. type_size_info } )
     elseif ( _type_uint == 22 ) then
       -- SignatureInfo
-      local child_tree = add_subtree( ndntlv_info, { f_data_signatureinfo, "Signature Info" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_data_signatureinfo, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 23 ) then
       -- SignatureValue
@@ -241,14 +241,14 @@ function parse_ndn_tlv( buf, ndntlv_info )
       add_subtree( ndntlv_info, { f_data_metainfo_freshnessperiod, _payload, _payload:uint(), nil, type_size_info } )
     elseif ( _type_uint == 26 ) then
       -- MetaInfo / FinalBlockId
-      local child_tree = add_subtree( ndntlv_info, { f_data_metainfo_finalblockid, "Final Block ID" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_data_metainfo_finalblockid, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 27 ) then
       -- Signature / SignatureType
       add_subtree( ndntlv_info, { f_data_signature_signaturetype, _payload, _payload:uint(), nil, type_size_info } )
     elseif ( _type_uint == 28 ) then
       -- Signature / KeyLocator
-      local child_tree = add_subtree( ndntlv_info, { f_data_signature_keylocator, "Key Locator" .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_data_signature_keylocator, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 29 ) then
       -- Signature / KeyDigest
@@ -323,7 +323,7 @@ end
  
 -- register a chained dissector for port 6363
 local udp_dissector_table = DissectorTable.get("udp.port")
-udp_dissector_table:add("1-65535", p_ndnproto)
+udp_dissector_table:add("6363", p_ndnproto)
 
 local tcp_dissector_table = DissectorTable.get("tcp.port")
 tcp_dissector_table:add("1-65535", p_ndnproto)
