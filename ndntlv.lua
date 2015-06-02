@@ -162,6 +162,11 @@ function parse_ndn_tlv( buf, ndntlv_info )
       return ret
     end
 
+    if ( current_pos + _size_num > length ) then
+      ret = false
+      break
+    end
+
     local _payload = buf( current_pos, _size_num )
     current_pos = current_pos + _size_num
 
@@ -322,14 +327,16 @@ function p_ndnproto.init()
 end
  
 -- register a chained dissector for port 6363
+local websocket_dissector_table = DissectorTable.get("ws.port")
+websocket_dissector_table:add("1-65535", p_ndnproto)
+
 local udp_dissector_table = DissectorTable.get("udp.port")
 udp_dissector_table:add("1-65535", p_ndnproto)
 
 local tcp_dissector_table = DissectorTable.get("tcp.port")
 tcp_dissector_table:add("1-65535", p_ndnproto)
 
-local websocket_dissector_table = DissectorTable.get("ws.port")
-websocket_dissector_table:add("1-65535", p_ndnproto)
+
 
 print("ndntlv.lua is successfully loaded.")
 
