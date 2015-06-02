@@ -180,7 +180,7 @@ function parse_ndn_tlv( buf, ndntlv_info )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 7 ) then
       -- Name
-      local child_tree = add_subtree( ndntlv_info, { f_name, _payload, _payload:string() .. type_size_info } )
+      local child_tree = add_subtree( ndntlv_info, { f_name, _payload, type_size_info } )
       ret = ret and parse_ndn_tlv( _payload, child_tree )
     elseif ( _type_uint == 8 ) then
       -- Name Component
