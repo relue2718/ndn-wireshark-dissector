@@ -320,23 +320,23 @@ function p_ndnproto.dissector( buf, pkt, root )
 
   print("-- dissector finishes --")
 end
- 
+
 -- Initialization routine
 function p_ndnproto.init()
-	print("initialized")
 end
- 
+
 -- register a chained dissector for port 6363
-local websocket_dissector_table = DissectorTable.get("ws.port")
-websocket_dissector_table:add("1-65535", p_ndnproto)
+
+-- what is the precedence among different dissectors?
+
+local tcp_dissector_table = DissectorTable.get("tcp.port")
+tcp_dissector_table:add("6363", p_ndnproto)
 
 local udp_dissector_table = DissectorTable.get("udp.port")
 udp_dissector_table:add("6363", p_ndnproto)
 
-local tcp_dissector_table = DissectorTable.get("tcp.port")
-tcp_dissector_table:add("1-65535", p_ndnproto)
-
-
+local websocket_dissector_table = DissectorTable.get("ws.port")
+websocket_dissector_table:add("9696", p_ndnproto)
 
 print("ndntlv.lua is successfully loaded.")
 
