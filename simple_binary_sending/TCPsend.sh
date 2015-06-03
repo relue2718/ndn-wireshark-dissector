@@ -12,6 +12,6 @@
 
 echo Sending binary data……
 
-dd if=$2 bs=$3 count=1  > /dev/tcp/127.0.0.1/$1
+dd if=$3 bs=$4 count=1  > /dev/tcp/$1/$2
 
 echo End
