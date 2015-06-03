@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #usage: ./TCPsend.sh file_name
 
 if [ -z "$1" ];then
