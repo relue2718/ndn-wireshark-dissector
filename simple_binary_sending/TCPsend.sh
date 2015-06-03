@@ -12,7 +12,6 @@ fi
 
 echo Sending binary data……
 
-data=`od -x $1`
 dd if=$1 bs=1000 count=1  > /dev/tcp/127.0.0.1/$2
 
 echo End
