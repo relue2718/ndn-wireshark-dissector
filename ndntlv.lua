@@ -1,11 +1,12 @@
+-- for a debugging purpose
+-- local inspect = require('inspect')
+
 -- NDN protocol
 p_ndnproto = Proto ("ndn","Named Data Network (NDN)") -- to create a 'Proto' object
 
 -- Type and Length fields
 local f_packet_type = ProtoField.uint16("ndn.type", "Type", base.DEC_HEX)
 local f_packet_size = ProtoField.uint16("ndn.length", "Length", base.DEC_HEX)
-
-local f_packet_type_2 = ProtoField.uint16("ndn.type", "Type", base.DEC_HEX)
 
 -- Interest or Data packets
 local f_interest = ProtoField.string("ndn.interest", "Interest", FT_STRING)
@@ -52,7 +53,7 @@ p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f
 
 -- ndntlv_info = { data: { field, type, string }, children: {} }
 
-function parse_ndn_tlv( buf, ndntlv_info )
+function parse_ndn_tlv( packetNumber, buf, ndntlv_info )
   local length = buf:len()
   local current_pos = 0
 
@@ -105,15 +106,15 @@ function parse_ndn_tlv( buf, ndntlv_info )
     if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
       -- Interest packet
       local child_tree = add_subtree( ndntlv_info, { f_interest, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 6 ) then
       -- Data packet
       local child_tree = add_subtree( ndntlv_info, { f_data, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 7 ) then
       -- Name
       local child_tree = add_subtree( ndntlv_info, { f_name, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 8 ) then
       -- Name Component
       add_subtree( ndntlv_info, { f_namecomponent, _payload, _payload:string(ENC_UTF_8) .. type_size_info } )
@@ -123,7 +124,7 @@ function parse_ndn_tlv( buf, ndntlv_info )
     elseif ( _type_uint == 9 ) then
       -- Selectors
       local child_tree = add_subtree( ndntlv_info, { f_interest_selector, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 10 ) then
       -- Nonce
       add_subtree( ndntlv_info, { f_interest_nonce, _payload, _payload:uint(), nil, type_size_info } )
@@ -142,11 +143,11 @@ function parse_ndn_tlv( buf, ndntlv_info )
     elseif ( _type_uint == 15 ) then
       -- Selectors / Publish Key Locator
       local child_tree = add_subtree( ndntlv_info, { f_interest_selector_keylocator, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 16 ) then
       -- Selectors / Exclude
       local child_tree = add_subtree( ndntlv_info, { f_interest_selector_exclude, _payload, type_size_info } )
-      parse_ndn_tlv( _payload, child_tree )
+      parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 17 ) then
       -- Selectors / Child Selector
       add_subtree( ndntlv_info, { f_interest_selector_childselector, _payload, _payload:uint(), nil, type_size_info } )
@@ -159,14 +160,14 @@ function parse_ndn_tlv( buf, ndntlv_info )
     elseif ( _type_uint == 20 ) then
       -- MetaInfo
       local child_tree = add_subtree( ndntlv_info, { f_data_metainfo, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 21 ) then
       -- Content
       add_subtree( ndntlv_info, { f_data_content, _payload, _payload:string() .. type_size_info } )
     elseif ( _type_uint == 22 ) then
       -- SignatureInfo
       local child_tree = add_subtree( ndntlv_info, { f_data_signatureinfo, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 23 ) then
       -- SignatureValue
       add_subtree( ndntlv_info, { f_data_signaturevalue, _payload, _payload:string() .. type_size_info } )
@@ -179,19 +180,19 @@ function parse_ndn_tlv( buf, ndntlv_info )
     elseif ( _type_uint == 26 ) then
       -- MetaInfo / FinalBlockId
       local child_tree = add_subtree( ndntlv_info, { f_data_metainfo_finalblockid, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 27 ) then
       -- Signature / SignatureType
       add_subtree( ndntlv_info, { f_data_signature_signaturetype, _payload, _payload:uint(), nil, type_size_info } )
     elseif ( _type_uint == 28 ) then
       -- Signature / KeyLocator
       local child_tree = add_subtree( ndntlv_info, { f_data_signature_keylocator, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packetNumber, _payload, child_tree )
     elseif ( _type_uint == 29 ) then
       -- Signature / KeyDigest
       add_subtree( ndntlv_info, { f_data_signature_keydigest, _payload, _payload:string() .. type_size_info } );
     else
-      print("** ERROR ** unhandled type_uint: ", _type_uint)
+      print("## warning ## unhandled type_uint: ", _type_uint)
       ret = false
     end
   end
@@ -217,18 +218,20 @@ end
 -- ndnproto dissector function
 function p_ndnproto.dissector( buf, pkt, root )
   -- validate packet length is adequate, otherwise quit
-  if buf:len() == 0 then
-  else
-    local ndntlv_info = { ["data"] = data, ["children"] = {} }
-    local was_ndntlv_packet = parse_ndn_tlv( buf, ndntlv_info )
+  local length = buf:len()
+  local packetNumber = pkt.number -- an unique serial for each packet
+  print("## info ## packet length = " .. length )
 
-    -- tprint(ndntlv_info)
+  if length == 0 then
+  else
+    local ndntlv_info = { ["data"] = nil, ["children"] = {} }
+    local was_ndntlv_packet = parse_ndn_tlv( packetNumber, buf, ndntlv_info )
 
     -- It needs to check whether the packet type is NDN-TLV.
     if was_ndntlv_packet == true then
       pkt.cols.protocol = p_ndnproto.name -- set the protocol name to NDN
 
-      local subtree = root:add(p_ndnproto, buf()) -- create subtree for ndnproto
+      local subtree = root:add( p_ndnproto, buf() ) -- create subtree for ndnproto
       create_subtree_from( ndntlv_info, subtree )
     end
   end
