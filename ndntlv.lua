@@ -76,55 +76,89 @@ function get_packet_status( packet_key, packet_number, status_key )
   return pending_packets[ packet_key ][ packet_number ][ status_key ] -- how can we get the number of a previous packet?
 end
 
+function dump_packet_status()
+  print(inspect(pending_packets))
+end
+
 function parse_ndn_tlv( packet_key, packet_number, max_size, buf, ndntlv_info )
   local length = buf:len()
 
-  print( packet_number .. ".." .. max_size )
-
   local current_pos = 0
+  local _size_num_including_header = 0
 
-  local ret = true
+  local ret = true -- a result of a ndn-tlv parser
+  local isFirst = false -- flag that is going to be enabled when the first buffer arrives
 
   while ( current_pos < length ) do
+    isFirst = ( current_pos == 0 )
+
     -- extract TYPE
     local _type = buf( current_pos, 1 )
     local _type_uint = _type:uint()
+
+    if ( isFirst ) then
+      _size_num_including_header = _size_num_including_header + 1
+    end
     current_pos = current_pos + 1
 
     -- extract SIZE
     local _size = buf( current_pos, 1 )
     local _size_num = _size:uint()
+
+    if ( isFirst ) then 
+        _size_num_including_header = _size_num_including_header + 1
+    end
     current_pos = current_pos + 1
 
     if ( _size_num == 253 ) then
       _size = buf( current_pos, 2 )
       _size_num = _size:uint()
+      if ( isFirst ) then 
+        _size_num_including_header = _size_num_including_header + _size_num + 2
+      end
       current_pos = current_pos + 2
     elseif ( _size_num == 254 ) then
       _size = buf( current_pos, 4 )
       _size_num = _size:uint()
+      if ( isFirst ) then 
+        _size_num_including_header = _size_num_including_header + _size_num + 4
+      end
       current_pos = current_pos + 4
     elseif ( _size_num == 255 ) then
       print("## error ## lua doesn't support 8 bytes of number variables.")
       _size = buf( current_pos, 8 )
       _size_num = _size:uint64() -- can lua number be larger than 32 bits? -- the type 'userdata'
+      if ( isFirst ) then 
+        _size_num_including_header = _size_num_including_header + _size_num + 8
+      end
       current_pos = current_pos + 8
+    else
+      if ( isFirst ) then 
+        _size_num_including_header = _size_num_including_header + _size_num
+      end
     end
 
     -- subtree:add( f_packet_size, _size )
     local type_size_info = " (Type: " .. _type_uint .. ", Size: " .. _size_num .. ")"
 
+    -- need to check which one should be used: either _size_num or _size_num_including_header
     if ( max_size ~= -1 and max_size < _size_num ) then
+      set_packet_status( packet_key, packet_number, "error", "The size of sub ndn-tlv packet can't exceed the parent's one." )
       ret = false
       break
     end
 
+    if ( isFirst ) then
+      set_packet_status( packet_key, packet_number, "expected_size", _size_num_including_header )
+    end
+
     if ( _type_uint == 18 ) then
+      set_packet_status( packet_key, packet_number, "error", "the type of field is 18 (but why is this an error?).")
       return ret
     end
 
     if ( current_pos + _size_num > length ) then
-      ret = false
+      set_packet_status( packet_key, packet_number, "status", "truncated")
       break
     end
 
@@ -264,6 +298,8 @@ function p_ndnproto.dissector( buf, pkt, root )
       local subtree = root:add( p_ndnproto, buf() ) -- create subtree for ndnproto
       create_subtree_from( ndntlv_info, subtree )
     end
+
+    dump_packet_status()
   end
 end
 
