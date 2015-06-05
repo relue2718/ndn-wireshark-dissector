@@ -439,11 +439,11 @@ function parse_buffer_and_update( packet_key, packet_number, is_original, pkt, r
       ndntlv_info = create_empty_ndntlv_info()
       parse_ndn_tlv( packet_key, packet_number, true, -1, { ["buf"] = buf }, ndntlv_info )
 
-      local pending_packet_number = optional_params["pending_packet_number"]
-      local pending_packet_number_end = optional_params["pending_packet_number_end"]
+      local used_packet_numbers = optional_params["used_packet_numbers"]
 
-      for i = pending_packet_number, pending_packet_number_end do
-        set_packet_status( packet_key, i, "ndntlv_info", ndntlv_info )
+      for k,v in pairs(used_packet_numbers) do
+        set_packet_status( packet_key, v, "ndntlv_info", ndntlv_info )
+        set_packet_status( packet_key, v, "status", CONST_STR_NDNTLV )
       end
     end
   end
@@ -492,6 +492,7 @@ function p_ndnproto.dissector( buf, pkt, root )
       if ( pending_packet_number < packet_number ) then
         local status = get_packet_status( packet_key, pending_packet_number, "status" )
         local expected_size = get_packet_status( packet_key, pending_packet_number, "expected_size" )
+        local used_packet_numbers = {}
 
         if ( status == CONST_STR_TRUNCATED ) then
           local merged_temp_buf = ByteArray.new()
@@ -504,6 +505,8 @@ function p_ndnproto.dissector( buf, pkt, root )
             else
               merged_temp_buf:append( temp_buf )
               pending_packet_number_end = temp_packet_number
+
+              table.insert( used_packet_numbers, temp_packet_number )
               temp_packet_number = get_next_element( pending_packet_numbers, temp_packet_number )
             end
           end
@@ -514,6 +517,7 @@ function p_ndnproto.dissector( buf, pkt, root )
               ["tvb_name"] = merged_tvb_name,
               ["pending_packet_number"] = pending_packet_number,
               ["pending_packet_number_end"] = pending_packet_number_end,
+              ["used_packet_numbers"] = used_packet_numbers,
             }
             print(pending_packet_number .. ".." .. pending_packet_number_end)
             parse_buffer_and_update( packet_key, packet_number, false, pkt, root, merged_parser_option )
