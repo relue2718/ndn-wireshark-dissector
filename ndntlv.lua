@@ -100,21 +100,61 @@ function dump_packet_status()
   print(inspect(pending_packets))
 end
 
-function parse_ndn_tlv( packet_key, packet_number, max_size, buf, ndntlv_info )
-  local length = buf:len()
+function bytearray_to_int( raw_bytes, offset, length )
+  local ret = 0
+  for i = offset, offset + length - 1 do
+    ret = ret * 256 + raw_bytes:get_index( i )
+  end
+  return ret
+end
+
+function deepcopy(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepcopy(orig_key)] = deepcopy(orig_value)
+        end
+        setmetatable(copy, deepcopy(getmetatable(orig)))
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
+end
+
+function parse_ndn_tlv( packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info )
+  print (packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info)
+  local raw_bytes = nil
+  local buf = nil
+  local length = nil
+
+  if ( is_original ) then
+    buf = optional_params["buf"]
+    length = buf:len()
+  else
+    raw_bytes = optional_params["raw_bytes"]
+    length = raw_bytes:len()
+  end
 
   local current_pos = 0
   local _size_num_including_header = 0
 
   local ret = true -- a result of a ndn-tlv parser
-  local isFirst = false -- flag that is going to be enabled when the first buffer arrives
+  local isFirst = false -- flag that is going to be enabled when the first buffer arrives [BUGGY]
 
   while ( current_pos < length ) do
     isFirst = ( current_pos == 0 )
 
     -- extract TYPE
-    local _type = buf( current_pos, 1 )
-    local _type_uint = _type:uint()
+    local _type_uint = nil
+    if ( is_original ) then
+      _type_uint = buf( current_pos, 1 ):uint()
+    else
+      _type_uint = bytearray_to_int( raw_bytes, current_pos, 1 )
+    end
+
+    print(_type_uint)
 
     if ( isFirst ) then
       _size_num_including_header = _size_num_including_header + 1
@@ -122,8 +162,12 @@ function parse_ndn_tlv( packet_key, packet_number, max_size, buf, ndntlv_info )
     current_pos = current_pos + 1
 
     -- extract SIZE
-    local _size = buf( current_pos, 1 )
-    local _size_num = _size:uint()
+    local _size_num = nil
+    if ( is_original ) then
+      _size_num = buf( current_pos, 1 ):uint()
+    else
+      _size_num = bytearray_to_int( raw_bytes, current_pos, 1 )
+    end
 
     if ( isFirst ) then 
         _size_num_including_header = _size_num_including_header + 1
@@ -131,23 +175,32 @@ function parse_ndn_tlv( packet_key, packet_number, max_size, buf, ndntlv_info )
     current_pos = current_pos + 1
 
     if ( _size_num == 253 ) then
-      _size = buf( current_pos, 2 )
-      _size_num = _size:uint()
+      if ( is_original ) then
+        _size_num = buf( current_pos, 2 ):uint()
+      else
+        _size_num = bytearray_to_int( raw_bytes, current_pos, 2 )
+      end
       if ( isFirst ) then 
         _size_num_including_header = _size_num_including_header + _size_num + 2
       end
       current_pos = current_pos + 2
     elseif ( _size_num == 254 ) then
-      _size = buf( current_pos, 4 )
-      _size_num = _size:uint()
+      if ( is_original ) then
+        _size_num = buf( current_pos, 4 ):uint()
+      else
+        _size_num = bytearray_to_int( raw_bytes, current_pos, 4 )
+      end
       if ( isFirst ) then 
         _size_num_including_header = _size_num_including_header + _size_num + 4
       end
       current_pos = current_pos + 4
     elseif ( _size_num == 255 ) then
       print("## error ## lua doesn't support 8 bytes of number variables.")
-      _size = buf( current_pos, 8 )
-      _size_num = _size:uint64() -- can lua number be larger than 32 bits? -- the type 'userdata'
+      if ( is_original ) then
+        _size_num = buf( current_pos, 8 ):uint64() -- can lua number be larger than 32 bits? -- the type 'userdata'
+      else
+        _size_num = bytearray_to_int( raw_bytes, current_pos, 8 )
+      end
       if ( isFirst ) then 
         _size_num_including_header = _size_num_including_header + _size_num + 8
       end
@@ -163,117 +216,186 @@ function parse_ndn_tlv( packet_key, packet_number, max_size, buf, ndntlv_info )
 
     -- need to check which one should be used: either _size_num or _size_num_including_header
     if ( max_size ~= -1 and max_size < _size_num ) then
-      set_packet_status( packet_key, packet_number, "error", "The size of sub ndn-tlv packet can't exceed the parent's one." )
+      if ( is_original ) then
+        set_packet_status( packet_key, packet_number, "error", "The size of sub ndn-tlv packet can't exceed the parent's one." )
+      end
       ret = false
       break
     end
 
     if ( isFirst ) then
-      set_packet_status( packet_key, packet_number, "expected_size", _size_num_including_header )
+      if ( is_original ) then
+        set_packet_status( packet_key, packet_number, "expected_size", _size_num_including_header )
+      end
     end
 
     if ( _type_uint == 18 ) then
-      set_packet_status( packet_key, packet_number, "error", "the type of field is 18 (but why is this an error?).")
+      if ( is_original ) then
+        set_packet_status( packet_key, packet_number, "error", "the type of field is 18 (but why is this an error?).")
+      end
       return ret
     end
 
     if ( current_pos + _size_num > length ) then
-      set_packet_status( packet_key, packet_number, "status", CONST_STR_TRUNCATED)
+      if ( is_original ) then
+        set_packet_status( packet_key, packet_number, "status", CONST_STR_TRUNCATED)
+      end
       ret = false
       break
     end
 
-    local _payload = buf( current_pos, _size_num )
+    local _payload = nil
+    local new_optional_params = {}
+    if ( is_original ) then
+      _payload = buf( current_pos, _size_num )
+      new_optional_params["buf"] = _payload
+    else
+      new_optional_params["raw_bytes"] = raw_bytes:subset( current_pos, _size_num )
+    end
     current_pos = current_pos + _size_num
+
+    local child_tree = nil
 
     if ( _type_uint == 5 ) then -- interest packet can contain sub NDN-TLV packets
       -- Interest packet
-      local child_tree = add_subtree( ndntlv_info, { f_interest, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_interest, _payload, type_size_info } )
+      end
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 6 ) then
       -- Data packet
-      local child_tree = add_subtree( ndntlv_info, { f_data, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_data, _payload, type_size_info } )
+      end
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 7 ) then
       -- Name
-      local child_tree = add_subtree( ndntlv_info, { f_name, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_name, _payload, type_size_info } )
+      end
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 8 ) then
       -- Name Component
-      add_subtree( ndntlv_info, { f_namecomponent, _payload, _payload:string(ENC_UTF_8) .. type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_namecomponent, _payload, _payload:string(ENC_UTF_8) .. type_size_info } )
+      end
     elseif ( _type_uint == 1 ) then
       -- Implicit SHA 256 Digest Component
-      add_subtree( ndntlv_info, { f_implicitSHA, _payload, _payload:string() .. type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_implicitSHA, _payload, _payload:string() .. type_size_info } )
+      end
     elseif ( _type_uint == 9 ) then
       -- Selectors
-      local child_tree = add_subtree( ndntlv_info, { f_interest_selector, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_interest_selector, _payload, type_size_info } )
+      end
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 10 ) then
       -- Nonce
-      add_subtree( ndntlv_info, { f_interest_nonce, _payload, _payload:uint(), nil, type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_interest_nonce, _payload, _payload:uint(), nil, type_size_info } )
+      end
     elseif ( _type_uint == 11 ) then
       -- Scope
-      add_subtree( ndntlv_info, { f_interest_scope, _payload, _payload:string() .. type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_interest_scope, _payload, _payload:string() .. type_size_info } )
+      end
     elseif ( _type_uint == 12 ) then
       -- Interest Lifetime
-      add_subtree( ndntlv_info, { f_interest_interestlifetime, _payload, _payload:uint(), nil, type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_interest_interestlifetime, _payload, _payload:uint(), nil, type_size_info } )
+      end
     elseif ( _type_uint == 13 ) then
       -- Selectors / Min Suffix Components
-      add_subtree( ndntlv_info, { f_interest_selector_minsuffix, _payload, _payload:uint(), nil, type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_interest_selector_minsuffix, _payload, _payload:uint(), nil, type_size_info } )
+      end
     elseif ( _type_uint == 14 ) then
       -- Selectors / Max Suffix Components
-      add_subtree( ndntlv_info, { f_interest_selector_maxsuffix, _payload, _payload:uint(), nil, type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_interest_selector_maxsuffix, _payload, _payload:uint(), nil, type_size_info } )
+      end
     elseif ( _type_uint == 15 ) then
       -- Selectors / Publish Key Locator
-      local child_tree = add_subtree( ndntlv_info, { f_interest_selector_keylocator, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_interest_selector_keylocator, _payload, type_size_info } )
+      end  
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 16 ) then
       -- Selectors / Exclude
-      local child_tree = add_subtree( ndntlv_info, { f_interest_selector_exclude, _payload, type_size_info } )
-      parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_interest_selector_exclude, _payload, type_size_info } )
+      end
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 17 ) then
       -- Selectors / Child Selector
-      add_subtree( ndntlv_info, { f_interest_selector_childselector, _payload, _payload:uint(), nil, type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_interest_selector_childselector, _payload, _payload:uint(), nil, type_size_info } )
+      end
     elseif ( _type_uint == 18 ) then
       -- Selectors / Must be Fresh
-      add_subtree( ndntlv_info, { f_interest_selector_mustbefresh, _payload, _payload:string() .. type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_interest_selector_mustbefresh, _payload, _payload:string() .. type_size_info } )
+      end
     elseif ( _type_uint == 19 ) then
       -- Selectors / Any
-      add_subtree( ndntlv_info, { f_interest_selector_any, _payload, _payload:string() .. type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_interest_selector_any, _payload, _payload:string() .. type_size_info } )
+      end
     elseif ( _type_uint == 20 ) then
       -- MetaInfo
-      local child_tree = add_subtree( ndntlv_info, { f_data_metainfo, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_data_metainfo, _payload, type_size_info } )  
+      end
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 21 ) then
       -- Content
-      add_subtree( ndntlv_info, { f_data_content, _payload, _payload:string() .. type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_data_content, _payload, _payload:string() .. type_size_info } )
+      end
     elseif ( _type_uint == 22 ) then
       -- SignatureInfo
-      local child_tree = add_subtree( ndntlv_info, { f_data_signatureinfo, _payload, type_size_info } )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_data_signatureinfo, _payload, type_size_info } )
+      end
       ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
     elseif ( _type_uint == 23 ) then
       -- SignatureValue
-      add_subtree( ndntlv_info, { f_data_signaturevalue, _payload, _payload:string() .. type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_data_signaturevalue, _payload, _payload:string() .. type_size_info } )
+      end
     elseif ( _type_uint == 24 ) then
       -- MetaInfo / ContentType
-      add_subtree( ndntlv_info, { f_data_metainfo_contenttype, _payload, _payload:uint(), nil, type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_data_metainfo_contenttype, _payload, _payload:uint(), nil, type_size_info } )
+      end
     elseif ( _type_uint == 25 ) then
       -- MetaInfo / FreshnessPeriod
-      add_subtree( ndntlv_info, { f_data_metainfo_freshnessperiod, _payload, _payload:uint(), nil, type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_data_metainfo_freshnessperiod, _payload, _payload:uint(), nil, type_size_info } )
+      end
     elseif ( _type_uint == 26 ) then
       -- MetaInfo / FinalBlockId
-      local child_tree = add_subtree( ndntlv_info, { f_data_metainfo_finalblockid, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_data_metainfo_finalblockid, _payload, type_size_info } )
+      end
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 27 ) then
       -- Signature / SignatureType
-      add_subtree( ndntlv_info, { f_data_signature_signaturetype, _payload, _payload:uint(), nil, type_size_info } )
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_data_signature_signaturetype, _payload, _payload:uint(), nil, type_size_info } )
+      end
     elseif ( _type_uint == 28 ) then
       -- Signature / KeyLocator
-      local child_tree = add_subtree( ndntlv_info, { f_data_signature_keylocator, _payload, type_size_info } )
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      if ( is_original ) then
+        child_tree = add_subtree( ndntlv_info, { f_data_signature_keylocator, _payload, type_size_info } )
+      end
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 29 ) then
       -- Signature / KeyDigest
-      add_subtree( ndntlv_info, { f_data_signature_keydigest, _payload, _payload:string() .. type_size_info } );
+      if ( is_original ) then
+        add_subtree( ndntlv_info, { f_data_signature_keydigest, _payload, _payload:string() .. type_size_info } );
+      end
     else
       print("## warning ## unhandled type_uint: ", _type_uint)
       ret = false
@@ -303,15 +425,28 @@ function create_empty_ndntlv_info()
   return { ["data"] = nil, ["children"] = {} }
 end
 
-function update_subtree( packet_key, packet_number, buf, pkt, root )
+function parse_buffer_and_update( packet_key, packet_number, is_original, pkt, root, optional_params )
   -- TODO: need to set the maximum length
   local ndntlv_info = create_empty_ndntlv_info()
-  local was_ndntlv_packet = parse_ndn_tlv( packet_key, packet_number, -1, buf, ndntlv_info )
-  -- It needs to check whether the packet type is NDN-TLV.
-  if was_ndntlv_packet == true then
-    pkt.cols.protocol = p_ndnproto.name -- set the protocol name to NDN
+  local was_ndntlv_packet = parse_ndn_tlv( packet_key, packet_number, is_original, -1, optional_params, ndntlv_info )
 
-    local subtree = root:add( p_ndnproto, buf() ) -- create subtree for ndnproto
+  if was_ndntlv_packet then
+    local buf = nil
+    if ( is_original ) then
+      buf = optional_params["buf"]
+    else
+      buf = ByteArray.tvb( optional_params["raw_bytes"], optional_params["tvb_name"] )
+      ndntlv_info = create_empty_ndntlv_info()
+      parse_ndn_tlv( packet_key, packet_number, true, -1, { ["buf"] = buf }, ndntlv_info )
+    end
+  end
+
+  -- print( packet_key .. "--" .. packet_number .. ".." .. tostring(was_ndntlv_packet) )
+
+  -- It needs to check whether the packet type is NDN-TLV.
+  if was_ndntlv_packet then
+    pkt.cols.protocol = p_ndnproto.name -- set the protocol name to NDN
+    local subtree = root:add( p_ndnproto, buf ) -- create subtree for ndnproto
     create_subtree_from( ndntlv_info, subtree )
   end
 end
@@ -326,8 +461,9 @@ function p_ndnproto.dissector( buf, pkt, root )
 
   if length == 0 then
   else
-    update_subtree( packet_key, packet_number, buf, pkt, root )
-    set_packet_status( packet_key, packet_number, "buffer", buf:range():bytes() )
+    local raw_bytes = buf:range():bytes()
+    parse_buffer_and_update( packet_key, packet_number, true, pkt, root, { ["buf"] = buf } )
+    set_packet_status( packet_key, packet_number, "buffer", raw_bytes )
   
     local pending_packet_numbers = get_keys_from( pending_packets[ packet_key ] )
     for k, v in pairs( pending_packet_numbers ) do
@@ -337,19 +473,25 @@ function p_ndnproto.dissector( buf, pkt, root )
       if ( status == CONST_STR_TRUNCATED ) then
         local merged_temp_buf = ByteArray.new()
         local temp_packet_number = pending_packet_number
+        local pending_packet_number_2 = 0
         while(merged_temp_buf:len() < expected_size) do
           local temp_buf = get_packet_status( packet_key, temp_packet_number, "buffer" )
           if ( temp_buf == nil ) then
             break
           else
             merged_temp_buf:append( temp_buf )
+            pending_packet_number_2 = temp_packet_number
             temp_packet_number = temp_packet_number + 1
           end
         end
         if ( merged_temp_buf:len() >= expected_size ) then
-          update_subtree( packet_key, packet_number, ByteArray.tvb(merged_temp_buf, "Merged"), pkt, root )
+          local merged_tvb_name = "Reassembled (" .. pending_packet_number .. "-" .. pending_packet_number_2 .. ")"
+          local merged_parser_option = { 
+            ["raw_bytes"] = merged_temp_buf, 
+            ["tvb_name"] = merged_tvb_name
+          }
+          parse_buffer_and_update( packet_key, packet_number, false, pkt, root, merged_parser_option )
         end
-        
       end
     end
     dump_packet_status()
