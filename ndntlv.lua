@@ -124,7 +124,7 @@ function deepcopy(orig)
 end
 
 function parse_ndn_tlv( packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info )
-  print (packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info)
+  -- print (packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info)
   local raw_bytes = nil
   local buf = nil
   local length = nil
@@ -154,7 +154,7 @@ function parse_ndn_tlv( packet_key, packet_number, is_original, max_size, option
       _type_uint = bytearray_to_int( raw_bytes, current_pos, 1 )
     end
 
-    print(_type_uint)
+    -- print(_type_uint)
 
     if ( isFirst ) then
       _size_num_including_header = _size_num_including_header + 1
@@ -397,7 +397,7 @@ function parse_ndn_tlv( packet_key, packet_number, is_original, max_size, option
         add_subtree( ndntlv_info, { f_data_signature_keydigest, _payload, _payload:string() .. type_size_info } );
       end
     else
-      print("## warning ## unhandled type_uint: ", _type_uint)
+      --print("## warning ## unhandled type_uint: ", _type_uint)
       ret = false
       -- if the packet seems to be a NDN packet, it would be better idea to add some warning messages in the subtress instead of returning false.
     end
@@ -434,20 +434,33 @@ function parse_buffer_and_update( packet_key, packet_number, is_original, pkt, r
     local buf = nil
     if ( is_original ) then
       buf = optional_params["buf"]
+      set_packet_status( packet_key, packet_number, "ndntlv_info", ndntlv_info )
     else
       buf = ByteArray.tvb( optional_params["raw_bytes"], optional_params["tvb_name"] )
       ndntlv_info = create_empty_ndntlv_info()
       parse_ndn_tlv( packet_key, packet_number, true, -1, { ["buf"] = buf }, ndntlv_info )
+
+      local pending_packet_number = optional_params["pending_packet_number"]
+      local pending_packet_number_end = optional_params["pending_packet_number_end"]
+      for i = pending_packet_number, pending_packet_number_end do
+        set_packet_status( packet_key, i, "ndntlv_info", ndntlv_info )
+      end
     end
   end
 
   -- print( packet_key .. "--" .. packet_number .. ".." .. tostring(was_ndntlv_packet) )
 
   -- It needs to check whether the packet type is NDN-TLV.
-  if was_ndntlv_packet then
+  local saved_ndntlv_info = get_packet_status( packet_key, packet_number, "ndntlv_info" )
+  local parsed = get_packet_status( packet_key, packet_number, "parsed" )
+  if saved_ndntlv_info ~= nil then  
     pkt.cols.protocol = p_ndnproto.name -- set the protocol name to NDN
-    local subtree = root:add( p_ndnproto, buf ) -- create subtree for ndnproto
-    create_subtree_from( ndntlv_info, subtree )
+    if ( parsed ~= true ) then
+      set_packet_status( packet_key, packet_number, "parsed", true )
+      print("****")
+      local subtree = root:add( p_ndnproto, buf ) -- create subtree for ndnproto
+      create_subtree_from( saved_ndntlv_info, subtree )
+    end
   end
 end
 
@@ -458,13 +471,14 @@ function p_ndnproto.dissector( buf, pkt, root )
   local packet_number = pkt.number -- an unique serial for each packet
   local packet_key = tostring(pkt.src) .. ":" .. tostring(pkt.src_port) .. ":" .. tostring(pkt.dst) .. ":" .. tostring(pkt.dst_port)
   print("## info ## packet[" .. packet_number .. "], length = " .. length )
+  set_packet_status( packet_key, packet_number, "parsed", false )
 
   if length == 0 then
   else
     local raw_bytes = buf:range():bytes()
     parse_buffer_and_update( packet_key, packet_number, true, pkt, root, { ["buf"] = buf } )
     set_packet_status( packet_key, packet_number, "buffer", raw_bytes )
-  
+      
     local pending_packet_numbers = get_keys_from( pending_packets[ packet_key ] )
     for k, v in pairs( pending_packet_numbers ) do
       local pending_packet_number = v
@@ -473,28 +487,30 @@ function p_ndnproto.dissector( buf, pkt, root )
       if ( status == CONST_STR_TRUNCATED ) then
         local merged_temp_buf = ByteArray.new()
         local temp_packet_number = pending_packet_number
-        local pending_packet_number_2 = 0
-        while(merged_temp_buf:len() < expected_size) do
+        local pending_packet_number_end = 0
+        while (merged_temp_buf:len() < expected_size) do
           local temp_buf = get_packet_status( packet_key, temp_packet_number, "buffer" )
           if ( temp_buf == nil ) then
             break
           else
             merged_temp_buf:append( temp_buf )
-            pending_packet_number_2 = temp_packet_number
+            pending_packet_number_end = temp_packet_number
             temp_packet_number = temp_packet_number + 1
           end
         end
         if ( merged_temp_buf:len() >= expected_size ) then
-          local merged_tvb_name = "Reassembled (" .. pending_packet_number .. "-" .. pending_packet_number_2 .. ")"
+          local merged_tvb_name = "Reassembled (" .. pending_packet_number .. "-" .. pending_packet_number_end .. ")"
           local merged_parser_option = { 
             ["raw_bytes"] = merged_temp_buf, 
-            ["tvb_name"] = merged_tvb_name
+            ["tvb_name"] = merged_tvb_name,
+            ["pending_packet_number"] = pending_packet_number,
+            ["pending_packet_number_end"] = pending_packet_number_end,
           }
           parse_buffer_and_update( packet_key, packet_number, false, pkt, root, merged_parser_option )
         end
       end
     end
-    dump_packet_status()
+    --dump_packet_status()
   end
 end
 
