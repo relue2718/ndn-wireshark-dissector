@@ -61,7 +61,6 @@ p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f
 --          * key: packet number
 --          * value: packet status
 local pending_packets = {}
-local pending_packets_global = {}
 local CONST_STR_TRUNCATED = "TRUNCATED"
 local CONST_STR_NDNTLV = "NDNTLV"
 local GLOBAL_PACKET_INDEX = 0
@@ -442,6 +441,7 @@ function parse_buffer_and_update( packet_key, packet_number, is_original, pkt, r
 
       local pending_packet_number = optional_params["pending_packet_number"]
       local pending_packet_number_end = optional_params["pending_packet_number_end"]
+
       for i = pending_packet_number, pending_packet_number_end do
         set_packet_status( packet_key, i, "ndntlv_info", ndntlv_info )
       end
@@ -489,34 +489,38 @@ function p_ndnproto.dissector( buf, pkt, root )
     local pending_packet_numbers = get_keys_from( pending_packets[ packet_key ] )
     for k, v in pairs( pending_packet_numbers ) do
       local pending_packet_number = v
-      local status = get_packet_status( packet_key, pending_packet_number, "status" )
-      local expected_size = get_packet_status( packet_key, pending_packet_number, "expected_size" )
-      -- print("pending_packet_number: " .. pending_packet_number .. " -- " .. status .. " -- " .. expected_size)
-      if ( status == CONST_STR_TRUNCATED ) then
-        local merged_temp_buf = ByteArray.new()
-        local temp_packet_number = pending_packet_number
-        local pending_packet_number_end = 0
-        while (merged_temp_buf:len() < expected_size) do
-          local temp_buf = get_packet_status( packet_key, temp_packet_number, "buffer" )
-          if ( temp_buf == nil ) then
-            break
-          else
-            merged_temp_buf:append( temp_buf )
-            pending_packet_number_end = temp_packet_number
-            temp_packet_number = get_next_element( pending_packet_numbers, temp_packet_number )
+      if ( pending_packet_number < packet_number ) then
+        local status = get_packet_status( packet_key, pending_packet_number, "status" )
+        local expected_size = get_packet_status( packet_key, pending_packet_number, "expected_size" )
+
+        if ( status == CONST_STR_TRUNCATED ) then
+          local merged_temp_buf = ByteArray.new()
+          local temp_packet_number = pending_packet_number
+          local pending_packet_number_end = 0
+          while (merged_temp_buf:len() < expected_size) do
+            local temp_buf = get_packet_status( packet_key, temp_packet_number, "buffer" )
+            if ( temp_buf == nil ) then
+              break
+            else
+              merged_temp_buf:append( temp_buf )
+              pending_packet_number_end = temp_packet_number
+              temp_packet_number = get_next_element( pending_packet_numbers, temp_packet_number )
+            end
+          end
+          if ( merged_temp_buf:len() >= expected_size ) then
+            local merged_tvb_name = "Reassembled (" .. pending_packet_number .. "-" .. pending_packet_number_end .. ")"
+            local merged_parser_option = { 
+              ["raw_bytes"] = merged_temp_buf, 
+              ["tvb_name"] = merged_tvb_name,
+              ["pending_packet_number"] = pending_packet_number,
+              ["pending_packet_number_end"] = pending_packet_number_end,
+            }
+            print(pending_packet_number .. ".." .. pending_packet_number_end)
+            parse_buffer_and_update( packet_key, packet_number, false, pkt, root, merged_parser_option )
           end
         end
-        if ( merged_temp_buf:len() >= expected_size ) then
-          local merged_tvb_name = "Reassembled (" .. pending_packet_number .. "-" .. pending_packet_number_end .. ")"
-          local merged_parser_option = { 
-            ["raw_bytes"] = merged_temp_buf, 
-            ["tvb_name"] = merged_tvb_name,
-            ["pending_packet_number"] = pending_packet_number,
-            ["pending_packet_number_end"] = pending_packet_number_end,
-          }
-          -- print(pending_packet_number .. ".." .. pending_packet_number_end)
-          parse_buffer_and_update( packet_key, packet_number, false, pkt, root, merged_parser_option )
-        end
+      else
+        break
       end
     end
     --dump_packet_status()
