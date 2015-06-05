@@ -61,6 +61,10 @@ p_ndnproto.fields = {f_packet_type, f_packet_size, f_data, f_interest, f_name, f
 --          * key: packet number
 --          * value: packet status
 local pending_packets = {}
+local pending_packets_global = {}
+local CONST_STR_TRUNCATED = "TRUNCATED"
+local CONST_STR_NDNTLV = "NDNTLV"
+local GLOBAL_PACKET_INDEX = 0
 
 function set_packet_status( packet_key, packet_number, status_key, status_value )
   if type( pending_packets[ packet_key ] ) ~= "table" then
@@ -73,7 +77,23 @@ function set_packet_status( packet_key, packet_number, status_key, status_value 
 end
 
 function get_packet_status( packet_key, packet_number, status_key )
-  return pending_packets[ packet_key ][ packet_number ][ status_key ] -- how can we get the number of a previous packet?
+  if type( pending_packets[ packet_key ] ) ~= "table" then
+    return nil
+  end
+  if type( pending_packets[ packet_key ][ packet_number ] ) ~= "table" then
+    return nil
+  end
+  return pending_packets[ packet_key ][ packet_number ][ status_key ]
+end
+
+function get_keys_from( table )
+  local keyset = {}
+  local n = 0
+  for k, v in pairs( table ) do
+    n = n + 1
+    keyset[n] = k
+  end
+  return keyset
 end
 
 function dump_packet_status()
@@ -158,7 +178,7 @@ function parse_ndn_tlv( packet_key, packet_number, max_size, buf, ndntlv_info )
     end
 
     if ( current_pos + _size_num > length ) then
-      set_packet_status( packet_key, packet_number, "status", "truncated")
+      set_packet_status( packet_key, packet_number, "status", CONST_STR_TRUNCATED)
       break
     end
 
@@ -278,6 +298,10 @@ function add_subtree( info, data )
   return child_tree
 end
 
+function create_empty_ndntlv_info()
+  return { ["data"] = nil, ["children"] = {} }
+end
+
 -- ndnproto dissector function
 function p_ndnproto.dissector( buf, pkt, root )
   -- validate packet length is adequate, otherwise quit
@@ -288,8 +312,10 @@ function p_ndnproto.dissector( buf, pkt, root )
 
   if length == 0 then
   else
-    local ndntlv_info = { ["data"] = nil, ["children"] = {} }
+    local ndntlv_info = create_empty_ndntlv_info()
+    -- TODO: need to set the maximum length
     local was_ndntlv_packet = parse_ndn_tlv( packet_key, packet_number, -1, buf, ndntlv_info )
+    set_packet_status( packet_key, packet_number, "buffer", buf:range():bytes() )
 
     -- It needs to check whether the packet type is NDN-TLV.
     if was_ndntlv_packet == true then
@@ -299,6 +325,26 @@ function p_ndnproto.dissector( buf, pkt, root )
       create_subtree_from( ndntlv_info, subtree )
     end
 
+    local pending_packet_numbers = get_keys_from( pending_packets[ packet_key ] )
+    for k, v in pairs( pending_packet_numbers ) do
+      local pending_packet_number = v
+      local status = get_packet_status( packet_key, pending_packet_number, "status" )
+      local expected_size = get_packet_status( packet_key, pending_packet_number, "expected_size" )
+      if ( status == CONST_STR_TRUNCATED ) then
+        local merged_temp_buf = ByteArray.new()
+        local temp_packet_number = pending_packet_number
+        while(merged_temp_buf:len() < expected_size) do
+          local temp_buf = get_packet_status( packet_key, temp_packet_number, "buffer" )
+          if ( temp_buf == nil ) then
+            break
+          else
+            merged_temp_buf:append( temp_buf )
+            temp_packet_number = temp_packet_number + 1
+          end
+        end
+        print("merged_temp_buf -- " .. merged_temp_buf:len())
+      end
+    end
     dump_packet_status()
   end
 end
