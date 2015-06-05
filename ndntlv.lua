@@ -457,9 +457,16 @@ function parse_buffer_and_update( packet_key, packet_number, is_original, pkt, r
     pkt.cols.protocol = p_ndnproto.name -- set the protocol name to NDN
     if ( parsed ~= true ) then
       set_packet_status( packet_key, packet_number, "parsed", true )
-      print("****")
       local subtree = root:add( p_ndnproto, buf ) -- create subtree for ndnproto
       create_subtree_from( saved_ndntlv_info, subtree )
+    end
+  end
+end
+
+function get_next_element( tbl, current_value )
+  for k, v in pairs( tbl ) do
+    if ( v > current_value ) then
+      return v
     end
   end
 end
@@ -484,6 +491,7 @@ function p_ndnproto.dissector( buf, pkt, root )
       local pending_packet_number = v
       local status = get_packet_status( packet_key, pending_packet_number, "status" )
       local expected_size = get_packet_status( packet_key, pending_packet_number, "expected_size" )
+      -- print("pending_packet_number: " .. pending_packet_number .. " -- " .. status .. " -- " .. expected_size)
       if ( status == CONST_STR_TRUNCATED ) then
         local merged_temp_buf = ByteArray.new()
         local temp_packet_number = pending_packet_number
@@ -495,7 +503,7 @@ function p_ndnproto.dissector( buf, pkt, root )
           else
             merged_temp_buf:append( temp_buf )
             pending_packet_number_end = temp_packet_number
-            temp_packet_number = temp_packet_number + 1
+            temp_packet_number = get_next_element( pending_packet_numbers, temp_packet_number )
           end
         end
         if ( merged_temp_buf:len() >= expected_size ) then
@@ -506,6 +514,7 @@ function p_ndnproto.dissector( buf, pkt, root )
             ["pending_packet_number"] = pending_packet_number,
             ["pending_packet_number_end"] = pending_packet_number_end,
           }
+          -- print(pending_packet_number .. ".." .. pending_packet_number_end)
           parse_buffer_and_update( packet_key, packet_number, false, pkt, root, merged_parser_option )
         end
       end
