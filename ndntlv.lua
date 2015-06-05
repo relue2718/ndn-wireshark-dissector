@@ -123,7 +123,6 @@ function deepcopy(orig)
 end
 
 function parse_ndn_tlv( packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info )
-  --print (packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info)
   local raw_bytes = nil
   local buf = nil
   local length = nil
@@ -434,6 +433,7 @@ function parse_buffer_and_update( packet_key, packet_number, is_original, pkt, r
     if ( is_original ) then
       buf = optional_params["buf"]
       set_packet_status( packet_key, packet_number, "ndntlv_info", ndntlv_info )
+      set_packet_status( packet_key, packet_number, "status", CONST_STR_NDNTLV )
     else
       buf = ByteArray.tvb( optional_params["raw_bytes"], optional_params["tvb_name"] )
       ndntlv_info = create_empty_ndntlv_info()
@@ -463,12 +463,28 @@ function parse_buffer_and_update( packet_key, packet_number, is_original, pkt, r
   end
 end
 
+-- # not efficient
+-- # lua -- doesn't support the random access...?
 function get_next_element( tbl, current_value )
   for k, v in pairs( tbl ) do
     if ( v > current_value ) then
       return v
     end
   end
+  return current_value
+end
+
+-- # not efficient 
+function get_previous_element( tbl, current_value )
+  local prev = current_value
+  for k, v in pairs( tbl ) do
+    if ( v < current_value ) then
+      prev = v
+    else
+      break
+    end
+  end
+  return prev
 end
 
 -- ndnproto dissector function
@@ -489,7 +505,9 @@ function p_ndnproto.dissector( buf, pkt, root )
     local pending_packet_numbers = get_keys_from( pending_packets[ packet_key ] )
     for k, v in pairs( pending_packet_numbers ) do
       local pending_packet_number = v
-      if ( pending_packet_number < packet_number ) then
+
+      if ( pending_packet_number <= packet_number ) then
+      
         local status = get_packet_status( packet_key, pending_packet_number, "status" )
         local expected_size = get_packet_status( packet_key, pending_packet_number, "expected_size" )
         local used_packet_numbers = {}
@@ -523,8 +541,6 @@ function p_ndnproto.dissector( buf, pkt, root )
             parse_buffer_and_update( packet_key, packet_number, false, pkt, root, merged_parser_option )
           end
         end
-      else
-        break
       end
     end
     --dump_packet_status()
