@@ -124,7 +124,7 @@ function deepcopy(orig)
 end
 
 function parse_ndn_tlv( packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info )
-  -- print (packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info)
+  --print (packet_key, packet_number, is_original, max_size, optional_params, ndntlv_info)
   local raw_bytes = nil
   local buf = nil
   local length = nil
@@ -154,7 +154,7 @@ function parse_ndn_tlv( packet_key, packet_number, is_original, max_size, option
       _type_uint = bytearray_to_int( raw_bytes, current_pos, 1 )
     end
 
-    -- print(_type_uint)
+    -- print("type:" .. _type_uint)
 
     if ( isFirst ) then
       _size_num_including_header = _size_num_including_header + 1
@@ -358,7 +358,7 @@ function parse_ndn_tlv( packet_key, packet_number, is_original, max_size, option
       if ( is_original ) then
         child_tree = add_subtree( ndntlv_info, { f_data_signatureinfo, _payload, type_size_info } )
       end
-      ret = ret and parse_ndn_tlv( packet_key, packet_number, _size_num, _payload, child_tree )
+      ret = ret and parse_ndn_tlv( packet_key, packet_number, is_original, _size_num, new_optional_params, child_tree )
     elseif ( _type_uint == 23 ) then
       -- SignatureValue
       if ( is_original ) then
@@ -478,7 +478,7 @@ function p_ndnproto.dissector( buf, pkt, root )
     local raw_bytes = buf:range():bytes()
     parse_buffer_and_update( packet_key, packet_number, true, pkt, root, { ["buf"] = buf } )
     set_packet_status( packet_key, packet_number, "buffer", raw_bytes )
-      
+
     local pending_packet_numbers = get_keys_from( pending_packets[ packet_key ] )
     for k, v in pairs( pending_packet_numbers ) do
       local pending_packet_number = v
@@ -518,14 +518,14 @@ end
 function p_ndnproto.init()
 end
 
+local websocket_dissector_table = DissectorTable.get("ws.port")
+websocket_dissector_table:add("1-65535", p_ndnproto)
+
 local tcp_dissector_table = DissectorTable.get("tcp.port")
 tcp_dissector_table:add("6363", p_ndnproto)
 
 local udp_dissector_table = DissectorTable.get("udp.port")
 udp_dissector_table:add("6363", p_ndnproto)
-
-local websocket_dissector_table = DissectorTable.get("ws.port")
-websocket_dissector_table:add("9696", p_ndnproto)
 
 print("ndntlv.lua is successfully loaded.")
 
