@@ -302,6 +302,19 @@ function create_empty_ndntlv_info()
   return { ["data"] = nil, ["children"] = {} }
 end
 
+function update_subtree( packet_key, packet_number, buf, pkt, root )
+  -- TODO: need to set the maximum length
+  local ndntlv_info = create_empty_ndntlv_info()
+  local was_ndntlv_packet = parse_ndn_tlv( packet_key, packet_number, -1, buf, ndntlv_info )
+  -- It needs to check whether the packet type is NDN-TLV.
+  if was_ndntlv_packet == true then
+    pkt.cols.protocol = p_ndnproto.name -- set the protocol name to NDN
+
+    local subtree = root:add( p_ndnproto, buf() ) -- create subtree for ndnproto
+    create_subtree_from( ndntlv_info, subtree )
+  end
+end
+
 -- ndnproto dissector function
 function p_ndnproto.dissector( buf, pkt, root )
   -- validate packet length is adequate, otherwise quit
@@ -312,19 +325,9 @@ function p_ndnproto.dissector( buf, pkt, root )
 
   if length == 0 then
   else
-    local ndntlv_info = create_empty_ndntlv_info()
-    -- TODO: need to set the maximum length
-    local was_ndntlv_packet = parse_ndn_tlv( packet_key, packet_number, -1, buf, ndntlv_info )
+    update_subtree( packet_key, packet_number, buf, pkt, root )
     set_packet_status( packet_key, packet_number, "buffer", buf:range():bytes() )
-
-    -- It needs to check whether the packet type is NDN-TLV.
-    if was_ndntlv_packet == true then
-      pkt.cols.protocol = p_ndnproto.name -- set the protocol name to NDN
-
-      local subtree = root:add( p_ndnproto, buf() ) -- create subtree for ndnproto
-      create_subtree_from( ndntlv_info, subtree )
-    end
-
+  
     local pending_packet_numbers = get_keys_from( pending_packets[ packet_key ] )
     for k, v in pairs( pending_packet_numbers ) do
       local pending_packet_number = v
@@ -342,7 +345,10 @@ function p_ndnproto.dissector( buf, pkt, root )
             temp_packet_number = temp_packet_number + 1
           end
         end
-        print("merged_temp_buf -- " .. merged_temp_buf:len())
+        if ( merged_temp_buf:len() >= expected_size ) then
+          update_subtree( packet_key, packet_number, ByteArray.tvb(merged_temp_buf, "Merged"), pkt, root )
+        end
+        
       end
     end
     dump_packet_status()
