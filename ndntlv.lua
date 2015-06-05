@@ -179,6 +179,7 @@ function parse_ndn_tlv( packet_key, packet_number, max_size, buf, ndntlv_info )
 
     if ( current_pos + _size_num > length ) then
       set_packet_status( packet_key, packet_number, "status", CONST_STR_TRUNCATED)
+      ret = false
       break
     end
 
