@@ -1,6 +1,6 @@
 -- for a debugging purpose
 -- http://stackoverflow.com/questions/15175859/how-to-inspect-userdata-in-lua
-local inspect = require('inspect')
+-- local inspect = require('inspect')
 
 -- NDN protocol
 p_ndnproto = Proto ("ndn","Named Data Network (NDN)") -- to create a 'Proto' object
@@ -96,7 +96,7 @@ function get_keys_from( table )
 end
 
 function dump_packet_status()
-  print(inspect(pending_packets))
+  --print(inspect(pending_packets))
 end
 
 function bytearray_to_int( raw_bytes, offset, length )
